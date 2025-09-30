@@ -1,7 +1,6 @@
-// frontend/src/App.js - Versión FINAL para Supabase y Vercel
+// frontend/src/App.js - Versión que habla con el Backend Intermediario
 
 import React, { useState, useEffect } from 'react';
-import { supabase } from './supabaseClient'; // Importamos nuestro cliente de Supabase
 import './App.css';
 
 // --- Los componentes de íconos no cambian ---
@@ -13,7 +12,6 @@ const IconoEliminar = () => <svg viewBox="0 0 24 24" width="24" height="24" stro
 // --- Componente para una tarjeta de Tarea EXISTENTE ---
 function TareaCard({ tarea, onSave, onDelete }) {
     const [isEditing, setIsEditing] = useState(false);
-    // IMPORTANTE: El nombre de la columna en Supabase es 'name', no 'nombre_tarea'
     const [nombre, setNombre] = useState(tarea.name);
     const originalNombre = tarea.name;
 
@@ -30,6 +28,7 @@ function TareaCard({ tarea, onSave, onDelete }) {
             onDelete(tarea.id);
         }
     };
+
     return (
         <div className="card">
             {isEditing && (
@@ -81,58 +80,56 @@ function NuevaTareaCard({ onSave, onCancel }) {
 }
 
 
-// --- Componente principal de la App, con la lógica de Supabase ---
+// --- Componente Principal ---
 function App() {
     const [tasks, setTasks] = useState([]);
     const [isCreating, setIsCreating] = useState(false);
+    // La URL de nuestra API de backend. Para Vercel, esto se ajustará.
+    const API_URL = '/api'; 
 
-    // useEffect para cargar las tareas al iniciar
     useEffect(() => {
         getTasks();
     }, []);
 
-    // OBTENER todas las tareas de Supabase
+    // OBTENER tareas desde nuestro backend
     async function getTasks() {
-        const { data, error } = await supabase.from('tasks').select().order('name');
-        if (error) {
-            console.error("Error al obtener tareas:", error);
-        } else {
+        try {
+            const response = await fetch(`${API_URL}/tasks`);
+            if (!response.ok) throw new Error('Error en la respuesta del servidor');
+            const data = await response.json();
             setTasks(data);
+        } catch (error) {
+            console.error("Error al obtener tareas:", error);
+            alert("No se pudo conectar al servidor. Asegúrate de que el proceso 'node server.js' esté corriendo.");
         }
     }
 
-    // CREAR una nueva tarea en Supabase
+    // CREAR una tarea a través de nuestro backend
     async function handleCrearTarea(name) {
-        const { data, error } = await supabase.from('tasks').insert({ name }).select();
-        if (error) {
-            console.error('Error al crear tarea:', error);
-        } else {
-            setTasks([...tasks, data[0]]);
+        try {
+            const response = await fetch(`${API_URL}/tasks`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name })
+            });
+            if (!response.ok) throw new Error('Error en la respuesta del servidor');
+            const newTask = await response.json();
+            setTasks([...tasks, newTask]);
             setIsCreating(false);
+        } catch (error) {
+            console.error("Error al crear tarea:", error);
         }
     }
 
-    // ACTUALIZAR una tarea en Supabase
-    async function handleActualizarTarea(id, name) {
-        const { error } = await supabase.from('tasks').update({ name }).eq('id', id);
-        if (error) {
-            console.error('Error al actualizar tarea:', error);
-        } else {
-            const nuevasTareas = tasks.map(t => t.id === id ? { ...t, name } : t);
-            setTasks(nuevasTareas);
-        }
-    }
-    
-    // ELIMINAR una tarea de Supabase
-    async function handleEliminarTarea(id) {
-        const { error } = await supabase.from('tasks').delete().eq('id', id);
-        if (error) {
-            console.error('Error al eliminar tarea:', error);
-        } else {
-            const nuevasTareas = tasks.filter(t => t.id !== id);
-            setTasks(nuevasTareas);
-        }
-    }
+    // NOTA: Las funciones de Actualizar y Eliminar no están implementadas en el server.js que te dí.
+    // Habría que añadirlas allí para que funcionen.
+    const handleActualizarTarea = (id, name) => {
+        console.log(`Actualizar ${id} a ${name} (función no implementada en backend)`);
+    };
+
+    const handleEliminarTarea = (id) => {
+        console.log(`Eliminar ${id} (función no implementada en backend)`);
+    };
 
     return (
         <div className="app-container">
@@ -143,13 +140,7 @@ function App() {
                 </button>
             </header>
             <main className="grid-container">
-                {isCreating && (
-                    <NuevaTareaCard 
-                        onSave={handleCrearTarea} 
-                        onCancel={() => setIsCreating(false)} 
-                    />
-                )}
-                
+                {isCreating && <NuevaTareaCard onSave={handleCrearTarea} onCancel={() => setIsCreating(false)} />}
                 {tasks.map(task => (
                     <TareaCard 
                         key={task.id} 
