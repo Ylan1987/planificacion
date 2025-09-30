@@ -25,10 +25,19 @@ export default async function handler(req, res) {
         return res.status(200).json(data);
     } 
     
+    
     if (req.method === 'POST') {
-        const { name } = req.body;
+        // Solución: Parsear el body para convertirlo en un objeto JSON.
+        const body = JSON.parse(req.body);
+        const name = body.name;
+
+        // Ahora sí, 'name' tiene el valor correcto.
         const { data, error } = await supabase.from('tasks').insert({ name }).select();
-        if (error) return res.status(500).json({ error: error.message });
+
+        if (error) {
+            return res.status(500).json({ error: error.message });
+        }
+
         return res.status(201).json(data[0]);
     }
 
