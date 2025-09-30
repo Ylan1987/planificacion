@@ -33,7 +33,27 @@ export default async function handler(req, res) {
 
             return res.status(200).json(data);
         } 
-        
+        if (req.method === 'PUT') {
+            const { id, name } = req.body;
+            const { data, error } = await supabase
+                .from('tasks')
+                .update({ name })
+                .eq('id', id)
+                .select();
+            
+            if (error) throw error;
+            return res.status(200).json(data[0]);
+        }
+        if (req.method === 'DELETE') {
+            const { id } = req.body;
+            const { error } = await supabase
+                .from('tasks')
+                .delete()
+                .eq('id', id);
+
+            if (error) throw error;
+            return res.status(204).end(); // 204 significa "éxito, sin contenido"
+        }
         if (req.method === 'POST') {
             // --> LOG 3: Muestra exactamente lo que llega en el body de la petición
             console.log('[LOG] Body recibido en POST:', req.body);
@@ -55,8 +75,9 @@ export default async function handler(req, res) {
             return res.status(201).json(data[0]);
         }
 
-        res.setHeader('Allow', ['GET', 'POST']);
+        res.setHeader('Allow', ['GET', 'POST', 'PUT', 'DELETE']); // Añadimos los nuevos métodos
         res.status(405).end(`Método ${req.method} no permitido`);
+
 
     } catch (error) {
         // --> LOG 5: Atrapa y muestra cualquier error que ocurra en el proceso
