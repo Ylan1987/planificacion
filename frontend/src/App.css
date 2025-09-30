@@ -116,3 +116,23 @@ h1 {
     top: 15px;
     right: 15px;
 }
+.main-nav {
+  padding: 10px 20px;
+  background-color: var(--card-background);
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 20px;
+}
+
+.main-nav button {
+  background: none;
+  border: none;
+  color: var(--text-color-light);
+  font-size: 16px;
+  margin-right: 20px;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.main-nav button:hover {
+  color: var(--text-color);
+}
