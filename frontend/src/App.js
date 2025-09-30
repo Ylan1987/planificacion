@@ -123,13 +123,38 @@ function App() {
 
     // NOTA: Las funciones de Actualizar y Eliminar no están implementadas en el server.js que te dí.
     // Habría que añadirlas allí para que funcionen.
-    const handleActualizarTarea = (id, name) => {
-        console.log(`Actualizar ${id} a ${name} (función no implementada en backend)`);
-    };
+    async function handleActualizarTarea(id, name) {
+        try {
+            const response = await fetch(`${API_URL}/tasks`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id, name })
+            });
+            if (!response.ok) throw new Error('Error en la respuesta del servidor');
+            
+            // Actualizar el estado local para reflejar el cambio instantáneamente
+            const nuevasTareas = tasks.map(t => t.id === id ? { ...t, name } : t);
+            setTasks(nuevasTareas);
+        } catch (error) {
+            console.error("Error al actualizar tarea:", error);
+        }
+    }
 
-    const handleEliminarTarea = (id) => {
-        console.log(`Eliminar ${id} (función no implementada en backend)`);
-    };
+    async function handleEliminarTarea(id) {
+        try {
+            await fetch(`${API_URL}/tasks`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id })
+            });
+            
+            // Actualizar el estado local para reflejar el cambio instantáneamente
+            const nuevasTareas = tasks.filter(t => t.id !== id);
+            setTasks(nuevasTareas);
+        } catch (error) {
+            console.error("Error al eliminar tarea:", error);
+        }
+    }
 
     return (
         <div className="app-container">
