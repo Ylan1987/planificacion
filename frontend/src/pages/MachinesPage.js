@@ -24,35 +24,34 @@ function MachineForm({ initialData, tasks, onSave, onCancel }) {
         const updatedTasks = [...machine.tasks];
         let newRules = { ...updatedTasks[taskIndex].work_time_rules, [ruleField]: ruleValue };
 
-        // Lógica para limpiar el estado anidado al cambiar una opción principal
         if (ruleField === 'mode') {
-            newRules = { mode: ruleValue }; // Resetea las reglas si cambia el modo principal
+            newRules = { mode: ruleValue };
         } else if (ruleField === 'passes_mode') {
-            newRules = { ...newRules, size_mode: undefined, size_rules: [], time_independent_of_size: undefined };
+            newRules = { ...newRules, size_dependent: undefined, size_brackets: [], rate: undefined };
         }
         
         updatedTasks[taskIndex].work_time_rules = newRules;
         setMachine(prev => ({ ...prev, tasks: updatedTasks }));
     };
     
-    const handleSizeRuleChange = (taskIndex, ruleIndex, field, value) => {
+    const handleBracketChange = (taskIndex, bracketIndex, field, value) => {
         const updatedTasks = [...machine.tasks];
-        updatedTasks[taskIndex].work_time_rules.size_rules[ruleIndex][field] = value;
+        updatedTasks[taskIndex].work_time_rules.size_brackets[bracketIndex][field] = value;
         setMachine(prev => ({ ...prev, tasks: updatedTasks }));
     };
     
-    const addSizeRule = (taskIndex) => {
+    const addBracket = (taskIndex) => {
         const updatedTasks = [...machine.tasks];
-        if (!updatedTasks[taskIndex].work_time_rules.size_rules) {
-            updatedTasks[taskIndex].work_time_rules.size_rules = [];
+        if (!updatedTasks[taskIndex].work_time_rules.size_brackets) {
+            updatedTasks[taskIndex].work_time_rules.size_brackets = [];
         }
-        updatedTasks[taskIndex].work_time_rules.size_rules.push({ up_to_size: '', time: 0 });
+        updatedTasks[taskIndex].work_time_rules.size_brackets.push({ size_w: 0, size_h: 0, rate: 0 });
         setMachine(prev => ({ ...prev, tasks: updatedTasks }));
     };
 
-    const removeSizeRule = (taskIndex, ruleIndex) => {
+    const removeBracket = (taskIndex, bracketIndex) => {
         const updatedTasks = [...machine.tasks];
-        updatedTasks[taskIndex].work_time_rules.size_rules.splice(ruleIndex, 1);
+        updatedTasks[taskIndex].work_time_rules.size_brackets.splice(bracketIndex, 1);
         setMachine(prev => ({ ...prev, tasks: updatedTasks }));
     };
 
@@ -69,13 +68,13 @@ function MachineForm({ initialData, tasks, onSave, onCancel }) {
     return (
         <div className="card card-edit">
             <div className="card-content">
-                <label>Nombre de la Máquina</label>
-                <input type="text" value={machine.name} onChange={(e) => handleMachineFieldChange('name', e.target.value)} autoFocus />
-                <hr />
-                <h4>Tareas y Tiempos</h4>
+                <div className="form-section">
+                    <label>Nombre de la Máquina</label>
+                    <input type="text" value={machine.name} onChange={(e) => handleMachineFieldChange('name', e.target.value)} autoFocus />
+                </div>
                 {machine.tasks.map((task, taskIndex) => (
                     <div key={taskIndex} className="task-rule-form">
-                        <div className="form-row">
+                        <div className="form-row space-between">
                             <select value={task.task_id} onChange={(e) => handleTaskFieldChange(taskIndex, 'task_id', e.target.value)}>
                                 <option value="">-- Seleccionar Tarea --</option>
                                 {tasks.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
@@ -86,48 +85,47 @@ function MachineForm({ initialData, tasks, onSave, onCancel }) {
                             <div><label>T. Arranque (min)</label><input type="number" value={task.setup_time || 0} onChange={(e) => handleTaskFieldChange(taskIndex, 'setup_time', parseFloat(e.target.value) || 0)} /></div>
                             <div><label>T. Finalización (min)</label><input type="number" value={task.finish_time || 0} onChange={(e) => handleTaskFieldChange(taskIndex, 'finish_time', parseFloat(e.target.value) || 0)} /></div>
                         </div>
-                        <label>Modalidad de Tiempo de Trabajo</label>
-                        <select value={task.work_time_rules.mode} onChange={(e) => handleWorkTimeRuleChange(taskIndex, 'mode', e.target.value)}>
-                            <option value="hoja">Por Hoja</option>
-                            <option value="unidad">Por Unidad</option>
-                            <option value="bloque">Por Bloque</option>
-                        </select>
-
-                        {task.work_time_rules.mode === 'hoja' && <input type="number" placeholder="Tiempo por hoja" value={task.work_time_rules.timePerSheet || ''} onChange={e => handleWorkTimeRuleChange(taskIndex, 'timePerSheet', parseFloat(e.target.value) || 0)} />}
-                        {task.work_time_rules.mode === 'unidad' && <input type="number" placeholder="Tiempo por unidad" value={task.work_time_rules.timePerUnit || ''} onChange={e => handleWorkTimeRuleChange(taskIndex, 'timePerUnit', parseFloat(e.target.value) || 0)} />}
-                        
-                        {task.work_time_rules.mode === 'bloque' && (
-                            <>
-                                <label>Configuración del Bloque</label>
-                                <select value={task.work_time_rules.passes_mode || ''} onChange={(e) => handleWorkTimeRuleChange(taskIndex, 'passes_mode', e.target.value)}>
-                                    <option value="">-- Seleccionar --</option>
-                                    <option value="con_pasadas">Por cantidad de pasadas</option>
-                                    <option value="sin_pasadas">Sin importar las pasadas</option>
-                                </select>
-                                
-                                {task.work_time_rules.passes_mode === 'con_pasadas' && <input type="number" placeholder="Cantidad de pasadas" value={task.work_time_rules.passes_count || ''} onChange={e => handleWorkTimeRuleChange(taskIndex, 'passes_count', parseInt(e.target.value, 10) || 0)} />}
-                                {task.work_time_rules.passes_mode === 'sin_pasadas' && (
-                                    <select value={task.work_time_rules.size_mode || ''} onChange={(e) => handleWorkTimeRuleChange(taskIndex, 'size_mode', e.target.value)}>
-                                        <option value="">-- Seleccionar --</option>
-                                        <option value="dependiente">Por tamaño</option>
-                                        <option value="independiente">No importa el tamaño</option>
-                                    </select>
-                                )}
-                                {task.work_time_rules.size_mode === 'dependiente' && (
-                                    <div className="size-rules">
-                                        {(task.work_time_rules.size_rules || []).map((rule, ruleIndex) => (
-                                            <div key={ruleIndex} className="form-row">
-                                                <input type="text" placeholder="Hasta tal tamaño (ej: 70x100)" value={rule.up_to_size} onChange={e => handleSizeRuleChange(taskIndex, ruleIndex, 'up_to_size', e.target.value)} />
-                                                <input type="number" placeholder="Tiempo" value={rule.time} onChange={e => handleSizeRuleChange(taskIndex, ruleIndex, 'time', parseFloat(e.target.value) || 0)} />
-                                                <button onClick={() => removeSizeRule(taskIndex, ruleIndex)} className="delete-icon-small">X</button>
-                                            </div>
-                                        ))}
-                                        <button onClick={() => addSizeRule(taskIndex)} className="add-button-small">+ Añadir Rango de Tamaño</button>
+                        <div className="form-section">
+                            <label>Modalidad de Tiempo de Trabajo</label>
+                            <select value={task.work_time_rules.mode} onChange={(e) => handleRuleChange(taskIndex, 'mode', e.target.value)}>
+                                <option value="hoja">Por Hoja</option>
+                                <option value="unidad">Por Unidad</option>
+                                <option value="bloque">Por Bloque</option>
+                            </select>
+                            
+                            {(task.work_time_rules.mode === 'hoja' || task.work_time_rules.mode === 'unidad') && <><label>Cant. por Hora</label><input type="number" value={task.work_time_rules.rate || ''} onChange={e => handleRuleChange(taskIndex, 'rate', parseFloat(e.target.value) || 0)} /></>}
+                            
+                            {task.work_time_rules.mode === 'bloque' && (
+                                <>
+                                    <div className="toggle-switch">
+                                        <input type="checkbox" id={`passes-${taskIndex}`} checked={task.work_time_rules.passes || false} onChange={e => handleRuleChange(taskIndex, 'passes', e.target.checked)} />
+                                        <label htmlFor={`passes-${taskIndex}`}>Afectado por Cantidad de Pasadas</label>
                                     </div>
-                                )}
-                                {task.work_time_rules.size_mode === 'independiente' && <input type="number" placeholder="Tiempo por bloque" value={task.work_time_rules.time_independent_of_size || ''} onChange={e => handleWorkTimeRuleChange(taskIndex, 'time_independent_of_size', parseFloat(e.target.value) || 0)} />}
-                            </>
-                        )}
+                                    <label>Tiempo por Tamaño</label>
+                                    <select value={task.work_time_rules.size_dependent || false} onChange={(e) => handleRuleChange(taskIndex, 'size_dependent', e.target.value === 'true')}>
+                                        <option value="false">No importa el tamaño</option>
+                                        <option value="true">Depende del tamaño</option>
+                                    </select>
+                                    {task.work_time_rules.size_dependent === false && <><label>Cant. por Hora</label><input type="number" value={task.work_time_rules.rate || ''} onChange={e => handleRuleChange(taskIndex, 'rate', parseFloat(e.target.value) || 0)} /></>}
+                                    {task.work_time_rules.size_dependent === true && (
+                                        <div className="size-brackets">
+                                            <label>Rangos de Tamaño y Cantidad</label>
+                                            {(task.work_time_rules.size_brackets || []).map((bracket, bracketIndex) => (
+                                                <div key={bracketIndex} className="bracket-row">
+                                                    <span>Hasta</span>
+                                                    <input type="number" placeholder="Ancho" value={bracket.size_w || ''} onChange={e => handleBracketChange(taskIndex, bracketIndex, 'size_w', parseInt(e.target.value, 10) || 0)} />
+                                                    <span>x</span>
+                                                    <input type="number" placeholder="Alto" value={bracket.size_h || ''} onChange={e => handleBracketChange(taskIndex, bracketIndex, 'size_h', parseInt(e.target.value, 10) || 0)} />
+                                                    <input type="number" placeholder="Cant/Hora" value={bracket.rate || ''} onChange={e => handleBracketChange(taskIndex, bracketIndex, 'rate', parseInt(e.target.value, 10) || 0)} />
+                                                    <button onClick={() => removeBracket(taskIndex, bracketIndex)} className="delete-icon-small">X</button>
+                                                </div>
+                                            ))}
+                                            <button onClick={() => addBracket(taskIndex)} className="add-button-small">+ Añadir Rango</button>
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                        </div>
                     </div>
                 ))}
                 <button onClick={addTask} className="add-button-small">+ Añadir Asignación de Tarea</button>
@@ -147,18 +145,105 @@ export default function MachinesPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [editingMachine, setEditingMachine] = useState(null);
 
-    const fetchData = async () => { /* ... (código sin cambios) */ };
-    useEffect(() => { fetchData(); }, []);
+    const fetchData = async () => {
+        setIsLoading(true);
+        try {
+            const [machinesRes, tasksRes] = await Promise.all([
+                fetch('/api/machines'),
+                fetch('/api/tasks')
+            ]);
+            if (!machinesRes.ok || !tasksRes.ok) throw new Error("Error en la respuesta de la API");
+            const machinesData = await machinesRes.json();
+            const tasksData = await tasksRes.json();
+            setMachines(machinesData);
+            setTasks(tasksData);
+        } catch (error) {
+            console.error("Error al cargar datos:", error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchData();
+    }, []);
     
-    const handleSaveMachine = async (machineData) => { /* ... (código sin cambios) */ };
-    const handleDeleteMachine = async (id) => { /* ... (código sin cambios) */ };
+    const handleSaveMachine = async (machineData) => {
+        const isCreating = !machineData.id;
+        const method = isCreating ? 'POST' : 'PUT';
 
-    const handleAddNew = () => setEditingMachine({ id: null, name: '', tasks: [] });
+        const tasksToSave = machineData.tasks
+            .filter(t => t.task_id) // Filtrar tareas que no han sido seleccionadas
+            .map(({ task_id, setup_time, finish_time, work_time_rules }) => ({
+                task_id: parseInt(task_id, 10),
+                setup_time,
+                finish_time,
+                work_time_rules
+            }));
+        
+        const payload = { ...machineData, tasks: tasksToSave };
 
+        try {
+            const response = await fetch('/api/machines', {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!response.ok) throw new Error('Error en la respuesta del servidor al guardar');
+            
+            setEditingMachine(null);
+            fetchData();
+        } catch (error) {
+            console.error("Error al guardar la máquina:", error);
+        }
+    };
+
+    const handleDeleteMachine = async (id) => {
+        if (!window.confirm("¿Estás seguro de que quieres eliminar esta máquina?")) return;
+
+        try {
+            await fetch('/api/machines', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id })
+            });
+            
+            fetchData();
+        } catch (error) {
+            console.error("Error al eliminar la máquina:", error);
+        }
+    };
+
+    const handleAddNew = () => {
+        setEditingMachine({ id: null, name: '', tasks: [] });
+    };
+
+    const handleEdit = (machine) => {
+        // Prepara los datos para el formulario, asegurando que el formato sea el correcto
+        const tasksForEditing = machine.machine_tasks.map(mt => ({
+            task_id: mt.task_id,
+            setup_time: mt.setup_time,
+            finish_time: mt.finish_time,
+            work_time_rules: mt.work_time_rules || { mode: 'unidad' } // Asegura que work_time_rules exista
+        }));
+        setEditingMachine({ ...machine, tasks: tasksForEditing });
+    };
+
+    // Si estamos editando o creando, mostramos el formulario
     if (editingMachine) {
-        return <div className="app-container"><MachineForm initialData={editingMachine} tasks={tasks} onSave={handleSaveMachine} onCancel={() => setEditingMachine(null)} /></div>;
+        return (
+            <div className="app-container">
+                 <MachineForm 
+                    initialData={editingMachine}
+                    tasks={tasks}
+                    onSave={handleSaveMachine}
+                    onCancel={() => setEditingMachine(null)}
+                />
+            </div>
+        )
     }
 
+    // Vista principal
     return (
         <div className="app-container">
             <header>
@@ -168,7 +253,7 @@ export default function MachinesPage() {
             {isLoading ? <p>Cargando...</p> : (
                 <main className="grid-container">
                     {machines.map(machine => (
-                        <div key={machine.id} className="card" onClick={() => setEditingMachine({ ...machine, tasks: machine.machine_tasks.map(mt => ({ task_id: mt.task_id, setup_time: mt.setup_time, finish_time: mt.finish_time, work_time_rules: mt.work_time_rules })) })}>
+                        <div key={machine.id} className="card" onClick={() => handleEdit(machine)}>
                              <button className="delete-icon" onClick={(e) => { e.stopPropagation(); handleDeleteMachine(machine.id); }} title="Eliminar"><IconoEliminar /></button>
                              <div className="card-content">
                                  <span>{machine.name}</span>
