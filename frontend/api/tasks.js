@@ -3,7 +3,7 @@
 const { createClient } = require('@supabase/supabase-js');
 
 // La conexión a Supabase se hace con las variables de entorno de Vercel
-const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
+const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
