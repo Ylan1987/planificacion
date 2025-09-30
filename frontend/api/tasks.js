@@ -27,14 +27,14 @@ export default async function handler(req, res) {
     
     
     if (req.method === 'POST') {
-        // Solución: Parsear el body para convertirlo en un objeto JSON.
-        const body = JSON.parse(req.body);
-        const name = body.name;
+        // Vercel ya nos da el 'body' como un objeto, no necesitamos 'JSON.parse'.
+        const { name } = req.body; // <-- Esta es la forma correcta para Vercel.
 
-        // Ahora sí, 'name' tiene el valor correcto.
         const { data, error } = await supabase.from('tasks').insert({ name }).select();
 
         if (error) {
+            // Añadimos un log para ver cualquier error de Supabase en el futuro
+            console.error('Error de Supabase al insertar:', error); 
             return res.status(500).json({ error: error.message });
         }
 
