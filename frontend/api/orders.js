@@ -116,7 +116,7 @@ export default async function handler(req, res) {
                 orderTasksToInsert.push({
                     order_id: orderData.id,
                     product_workflow_id: wf.id,
-                    task_id: wf.task_id,
+                    task_id: wf.task_id, // <-- CAMBIO CLAVE: Añadir el task_id aquí
                     possible_resources: details.possible_resources,
                     prerequisites: details.prerequisites,
                     status: 'pending'
