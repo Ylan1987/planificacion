@@ -177,9 +177,13 @@ export default function PlanningBoardPage() {
     };
 
     const startPlanning = (task, order) => {
+        console.log("%c--- INICIANDO PLANIFICACIÓN ---", "color: #03dac6; font-weight: bold;");
+        console.log("Tarea a planificar:", task);
         setPlanningTask(task);
+        
         const backgroundItems = items.current.get({ filter: item => item.type === 'background' });
         items.current.remove(backgroundItems.map(item => item.id));
+
         let lastPrereqEndTime = moment();
         if (task.prerequisites && task.prerequisites.length > 0) {
             task.prerequisites.forEach(prereqId => {
@@ -192,10 +196,17 @@ export default function PlanningBoardPage() {
                 }
             });
         }
-        
+        console.log("Fin de prerrequisitos calculado:", lastPrereqEndTime.format('YYYY-MM-DD HH:mm'));
+
         const validSlots = [];
+        console.log("Recursos posibles para la tarea:", task.possible_resources);
         task.possible_resources.machines.forEach(resource => {
+            console.log(`%cBuscando huecos para Máquina: ${resource.machine_name}`, "color: #3f51b5;");
             const duration = resource.duration_minutes;
+            if(!duration || duration <= 0) {
+                console.warn(`[WARN] La duración para la máquina ${resource.machine_name} es 0 o inválida. Saltando.`);
+                return;
+            }
             const machineSchedule = scheduledTasks.filter(st => st.machine_id === resource.machine_id).sort((a,b) => new Date(a.start_time) - new Date(b.start_time));
             let searchStart = lastPrereqEndTime.clone();
             if (moment().isAfter(searchStart)) searchStart = moment();
@@ -215,6 +226,7 @@ export default function PlanningBoardPage() {
                 if (!machineOverlap) {
                     const availableOperatorsForSlot = resource.operator_ids.filter(opId => isOperatorAvailable(opId, proposedStart, proposedEnd));
                     if (availableOperatorsForSlot.length > 0) {
+                        console.log(`[LOG] Slot válido encontrado para ${resource.machine_name} a las ${proposedStart.format('HH:mm')}`);
                         validSlots.push({
                             id: `slot-${resource.machine_id}-${proposedStart.valueOf()}`, group: `m-${resource.machine_id}`,
                             start: proposedStart.toDate(), end: proposedEnd.toDate(),
@@ -229,6 +241,7 @@ export default function PlanningBoardPage() {
                 limit--;
             }
         });
+        console.log("Total de slots válidos encontrados:", validSlots.length, validSlots);
         items.current.add(validSlots);
     };
     
