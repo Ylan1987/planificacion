@@ -52,7 +52,7 @@ export default async function handler(req, res) {
         if (req.method === 'PUT') {
             const { id, name, workflow } = JSON.parse(req.body);
 
-            // 1. Actualizar nombre del producto
+            // 1. Actualizar el nombre del producto
             const { error: productError } = await supabase.from('products').update({ name }).eq('id', id);
             if (productError) throw productError;
 
