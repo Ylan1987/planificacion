@@ -100,20 +100,16 @@ export default async function handler(req, res) {
 
     try {
         if (req.method === 'GET') {
-            console.log("[LOG] Obteniendo todos los pedidos y sus tareas planificables...");
             const { data, error } = await supabase.from('orders').select(`*, product:products(name), order_tasks(*, task:tasks(name))`).order('created_at', { ascending: false });
             if (error) throw error;
             return res.status(200).json(data);
         }
 
         if (req.method === 'POST') {
-            console.log("[LOG] Creando un nuevo pedido...");
             const { productId, quantity, orderNumber, dueDate, width, height, configs } = req.body;
-            console.log("[LOG] Body recibido:", req.body);
             
             const { data: orderData, error: orderError } = await supabase.from('orders').insert({ product_id: productId, quantity, order_number: orderNumber, due_date: dueDate, configs }).select().single();
             if (orderError) throw orderError;
-            console.log(`[LOG] Pedido ${orderData.id} creado en DB.`);
 
             const { data: productWorkflows, error: wfError } = await supabase.from('product_workflows').select(`*`).eq('product_id', productId);
             if (wfError) throw wfError;
@@ -126,6 +122,7 @@ export default async function handler(req, res) {
                 orderTasksToInsert.push({
                     order_id: orderData.id,
                     product_workflow_id: wf.id,
+                    task_id: wf.task_id, // <-- CAMBIO CLAVE: Añadir el task_id aquí
                     possible_resources: details.possible_resources,
                     prerequisites: details.prerequisites,
                     status: 'pending'
@@ -135,7 +132,6 @@ export default async function handler(req, res) {
             if (orderTasksToInsert.length > 0) {
                 const { error: insertTasksError } = await supabase.from('order_tasks').insert(orderTasksToInsert);
                 if (insertTasksError) throw insertTasksError;
-                console.log(`[LOG] Generadas ${orderTasksToInsert.length} tareas planificables para pedido ${orderData.id}.`);
             }
 
             return res.status(201).json(orderData);
