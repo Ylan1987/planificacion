@@ -6,6 +6,46 @@ const IconoGuardar = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" he
 const IconoDescartar = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>;
 const IconoEliminar = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>;
 
+// --- Componente Reutilizable para Selector con Chips (Corregido) ---
+function ChipSelector({ options, selectedValues, onChange, placeholder }) {
+    // --- CORRECCIÓN: Asegura que selectedValues sea siempre un array ---
+    const currentValues = selectedValues || [];
+
+    const handleSelect = (e) => {
+        const selectedId = parseInt(e.target.value, 10);
+        if (selectedId && !currentValues.includes(selectedId)) {
+            onChange([...currentValues, selectedId]);
+        }
+        e.target.value = "";
+    };
+    const handleRemove = (idToRemove) => {
+        onChange(currentValues.filter(id => id !== idToRemove));
+    };
+    const availableOptions = options.filter(opt => !currentValues.includes(opt.value));
+
+    return (
+        <div className="skills-selector">
+            <div className="chips-container">
+                {currentValues.map(value => { // Usa currentValues en lugar de selectedValues
+                    const option = options.find(opt => opt.value === value);
+                    return (
+                        <div key={value} className="chip">
+                            {option?.label || 'ID Desconocido'}
+                            <button onClick={() => handleRemove(value)} className="chip-delete">×</button>
+                        </div>
+                    );
+                })}
+            </div>
+            <select onChange={handleSelect} value="">
+                <option value="">{placeholder || "+ Añadir..."}</option>
+                {availableOptions.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+            </select>
+        </div>
+    );
+}
+
 // --- Componente de Formulario ---
 function ProductForm({ initialData, allTasks, onSave, onCancel }) {
     const [product, setProduct] = useState(initialData);
@@ -17,7 +57,6 @@ function ProductForm({ initialData, allTasks, onSave, onCancel }) {
         setProduct(p => ({ ...p, workflow: newWorkflow }));
     };
     const addWorkflowTask = () => {
-        // temp_id se usa para identificar el nodo antes de guardarlo en la DB
         const newWorkflowTask = { temp_id: Date.now(), task_id: '', is_optional: false, prerequisites: [] };
         setProduct(p => ({ ...p, workflow: [...p.workflow, newWorkflowTask] }));
     };
@@ -32,7 +71,13 @@ function ProductForm({ initialData, allTasks, onSave, onCancel }) {
                 <hr style={{ margin: '20px 0' }} />
                 <h4>Flujo de Tareas del Producto</h4>
                 {product.workflow.map((wfTask, index) => {
-                    const availablePrerequisites = product.workflow.filter(p => (p.temp_id || p.id) !== (wfTask.temp_id || wfTask.id) );
+                    const prerequisiteOptions = product.workflow
+                        .filter(p => (p.temp_id || p.id) !== (wfTask.temp_id || wfTask.id) && p.task_id)
+                        .map(p => ({
+                            value: p.temp_id || p.id,
+                            label: allTasks.find(t => t.id === p.task_id)?.name || 'Tarea sin nombre'
+                        }));
+                    
                     return (
                         <div key={wfTask.temp_id || wfTask.id} className="task-rule-form">
                              <button onClick={() => removeWorkflowTask(index)} className="delete-icon-small"><IconoEliminar /></button>
@@ -40,12 +85,12 @@ function ProductForm({ initialData, allTasks, onSave, onCancel }) {
                                 <div className="full-width"><label>Tarea</label><select value={wfTask.task_id} onChange={(e) => handleWorkflowChange(index, 'task_id', parseInt(e.target.value, 10))}><option value="">-- Seleccionar --</option>{allTasks.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}</select></div>
                                 <div className="full-width">
                                     <label>Prerrequisitos (deben terminar antes)</label>
-                                    <select multiple value={wfTask.prerequisites || []} onChange={e => handleWorkflowChange(index, 'prerequisites', Array.from(e.target.selectedOptions, option => parseInt(option.value, 10)))} style={{height: '80px'}}>
-                                        {availablePrerequisites.map(prereq => {
-                                            const task = allTasks.find(t => t.id === prereq.task_id);
-                                            return <option key={prereq.temp_id || prereq.id} value={prereq.temp_id || prereq.id}>{task ? task.name : '(Nueva Tarea sin guardar)'}</option>
-                                        })}
-                                    </select>
+                                    <ChipSelector
+                                        options={prerequisiteOptions}
+                                        selectedValues={wfTask.prerequisites}
+                                        onChange={newPrerequisites => handleWorkflowChange(index, 'prerequisites', newPrerequisites)}
+                                        placeholder="+ Añadir prerrequisito..."
+                                    />
                                 </div>
                                 <div className="toggle-switch">
                                     <input type="checkbox" id={`optional-${index}`} checked={wfTask.is_optional} onChange={(e) => handleWorkflowChange(index, 'is_optional', e.target.checked)} />
