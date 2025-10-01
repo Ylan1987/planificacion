@@ -6,7 +6,7 @@ const IconoGuardar = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" he
 const IconoDescartar = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>;
 const IconoEliminar = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>;
 
-// --- **NUEVO** Componente para Selector con Chips ---
+// --- Componente para Selector con Chips ---
 function SkillsSelector({ allMachines, selectedSkills, onChange }) {
     const handleSelect = (e) => {
         const selectedId = parseInt(e.target.value, 10);
@@ -14,13 +14,10 @@ function SkillsSelector({ allMachines, selectedSkills, onChange }) {
             onChange([...selectedSkills, selectedId]);
         }
     };
-
     const handleRemove = (idToRemove) => {
         onChange(selectedSkills.filter(id => id !== idToRemove));
     };
-
     const availableMachines = allMachines.filter(m => !selectedSkills.includes(m.id));
-
     return (
         <div className="skills-selector">
             <div className="chips-container">
@@ -36,9 +33,7 @@ function SkillsSelector({ allMachines, selectedSkills, onChange }) {
             </div>
             <select onChange={handleSelect} value="">
                 <option value="">+ Añadir máquina...</option>
-                {availableMachines.map(m => (
-                    <option key={m.id} value={m.id}>{m.name}</option>
-                ))}
+                {availableMachines.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
             </select>
         </div>
     );
@@ -50,9 +45,22 @@ function OperatorForm({ initialData, machines, onSave, onCancel }) {
     const weekDays = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'];
 
     const handleFieldChange = (field, value) => setOperator(p => ({ ...p, [field]: value }));
-    const handleScheduleChange = (day, segmentIndex, field, value) => { /* ... (sin cambios) */ };
-    const addScheduleSegment = (day) => { /* ... (sin cambios) */ };
-    const removeScheduleSegment = (day, segmentIndex) => { /* ... (sin cambios) */ };
+    const handleScheduleChange = (day, segmentIndex, field, value) => {
+        const newSchedule = { ...operator.schedule };
+        newSchedule[day][segmentIndex][field] = value;
+        setOperator(p => ({ ...p, schedule: newSchedule }));
+    };
+    const addScheduleSegment = (day) => {
+        const newSchedule = { ...operator.schedule };
+        if (!newSchedule[day]) newSchedule[day] = [];
+        newSchedule[day].push({ start: '09:00', end: '13:00' });
+        setOperator(p => ({ ...p, schedule: newSchedule }));
+    };
+    const removeScheduleSegment = (day, segmentIndex) => {
+        const newSchedule = { ...operator.schedule };
+        newSchedule[day].splice(segmentIndex, 1);
+        setOperator(p => ({ ...p, schedule: newSchedule }));
+    };
 
     return (
         <div className="card card-edit">
@@ -64,7 +72,6 @@ function OperatorForm({ initialData, machines, onSave, onCancel }) {
                 </div>
                 <div className="form-section">
                     <label>Máquinas que sabe manejar</label>
-                    {/* --- Reemplazo del selector múltiple --- */}
                     <SkillsSelector
                         allMachines={machines}
                         selectedSkills={operator.skills}
@@ -75,7 +82,16 @@ function OperatorForm({ initialData, machines, onSave, onCancel }) {
                     <label>Horario Semanal</label>
                     {weekDays.map(day => (
                         <div key={day} className="day-schedule">
-                            {/* ... (código del horario sin cambios) */}
+                            <strong style={{textTransform: 'capitalize'}}>{day}</strong>
+                            {(operator.schedule?.[day] || []).map((segment, index) => (
+                                <div key={index} className="form-row">
+                                    <input type="time" value={segment.start} onChange={e => handleScheduleChange(day, index, 'start', e.target.value)} />
+                                    <span>-</span>
+                                    <input type="time" value={segment.end} onChange={e => handleScheduleChange(day, index, 'end', e.target.value)} />
+                                    <button onClick={() => removeScheduleSegment(day, index)} className="delete-icon-small"><IconoEliminar /></button>
+                                </div>
+                            ))}
+                            <button onClick={() => addScheduleSegment(day)} className="add-button-small">+ Añadir Turno</button>
                         </div>
                     ))}
                 </div>
@@ -129,9 +145,20 @@ export default function OperatorsPage() {
         } catch (error) { alert(`Error al eliminar: ${error.message}`); }
     };
     
-    const handleEdit = (operator) => { setEditingOperatorId(operator.id); setIsCreating(false); };
-    const handleCancel = () => { setIsCreating(false); setEditingOperatorId(null); };
-    const handleAddNew = () => { setIsCreating(true); setEditingOperatorId(null); };
+    const handleEdit = (operator) => {
+        setEditingOperatorId(operator.id);
+        setIsCreating(false);
+    };
+    
+    const handleCancel = () => {
+        setIsCreating(false);
+        setEditingOperatorId(null);
+    };
+
+    const handleAddNew = () => {
+        setIsCreating(true);
+        setEditingOperatorId(null);
+    };
 
     return (
         <div className="app-container">
