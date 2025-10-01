@@ -43,9 +43,7 @@ function MachineForm({ initialData, tasks, onSave, onCancel }) {
         <div className="card card-edit">
             <div className="card-actions"><button onClick={() => onSave(machine)} title="Guardar"><IconoGuardar /></button><button onClick={onCancel} title="Cancelar"><IconoDescartar /></button></div>
             <div className="card-content">
-                <div className="form-grid">
-                    <div className="full-width"><label>Nombre de la Máquina</label><input type="text" value={machine.name} onChange={(e) => handleFieldChange('name', e.target.value)} autoFocus /></div>
-                </div>
+                <div className="form-grid"><div className="full-width"><label>Nombre de la Máquina</label><input type="text" value={machine.name} onChange={(e) => handleFieldChange('name', e.target.value)} autoFocus /></div></div>
                 {machine.tasks.map((task, taskIndex) => (
                     <div key={taskIndex} className="task-rule-form">
                         <button onClick={() => removeTask(taskIndex)} className="delete-icon-small"><IconoEliminar /></button>
@@ -141,7 +139,6 @@ export default function MachinesPage() {
     };
     
     const handleAddNew = () => { setIsCreating(true); setEditingMachineId(null); };
-    
     const handleEdit = (machine) => {
         const tasksForEditing = machine.machine_tasks.map(mt => {
             let rules = mt.work_time_rules;
@@ -150,10 +147,10 @@ export default function MachinesPage() {
             }
             return { ...mt, work_time_rules: rules };
         });
-        setEditingMachine({ ...machine, tasks: tasksForEditing });
+        setEditingMachineId(machine.id); // <-- CORRECCIÓN: Aquí se usa setEditingMachineId
+        // La data completa se pasa al formulario en el render
         setIsCreating(false);
     };
-
     const handleCancel = () => { setIsCreating(false); setEditingMachineId(null); };
 
     return (
@@ -166,7 +163,18 @@ export default function MachinesPage() {
                         editingMachineId === machine.id ? (
                             <MachineForm 
                                 key={machine.id} 
-                                initialData={{ ...machine, tasks: machine.machine_tasks.map(mt => ({...mt})) }} 
+                                // --- CORRECCIÓN: Pasamos la data correcta al formulario ---
+                                initialData={{
+                                    ...machine, 
+                                    tasks: machine.machine_tasks.map(mt => ({
+                                        task_id: mt.task_id,
+                                        setup_time: mt.setup_time,
+                                        finish_time: mt.finish_time,
+                                        work_time_rules: (!mt.work_time_rules || mt.work_time_rules.length === 0) 
+                                            ? [{ size_w: 0, size_h: 0, mode: 'unidad', rate: 0, per_pass: false }] 
+                                            : mt.work_time_rules
+                                    })) 
+                                }}
                                 tasks={tasks} 
                                 onSave={handleSaveMachine} 
                                 onCancel={handleCancel}
