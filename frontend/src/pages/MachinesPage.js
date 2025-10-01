@@ -32,7 +32,11 @@ function MachineForm({ initialData, tasks, onSave, onCancel }) {
         newTasks[taskIndex].work_time_rules[ruleIndex][field] = value;
         setMachine(p => ({ ...p, tasks: newTasks }));
     };
-    const addTask = () => setMachine(p => ({ ...p, tasks: [...p.tasks, { task_id: '', setup_time: 0, finish_time: 0, work_time_rules: [] }] }));
+    const addTask = () => {
+        const newRule = { size_w: 0, size_h: 0, mode: 'unidad', rate: 0, per_pass: false };
+        const newTask = { task_id: '', setup_time: 0, finish_time: 0, work_time_rules: [newRule] };
+        setMachine(p => ({ ...p, tasks: [...p.tasks, newTask] }));
+    };
     const removeTask = (index) => setMachine(p => ({ ...p, tasks: p.tasks.filter((_, i) => i !== index) }));
 
     return (
@@ -137,7 +141,19 @@ export default function MachinesPage() {
     };
     
     const handleAddNew = () => { setIsCreating(true); setEditingMachineId(null); };
-    const handleEdit = (machine) => { setEditingMachineId(machine.id); setIsCreating(false); };
+    
+    const handleEdit = (machine) => {
+        const tasksForEditing = machine.machine_tasks.map(mt => {
+            let rules = mt.work_time_rules;
+            if (!Array.isArray(rules) || rules.length === 0) {
+                rules = [{ size_w: 0, size_h: 0, mode: 'unidad', rate: 0, per_pass: false }];
+            }
+            return { ...mt, work_time_rules: rules };
+        });
+        setEditingMachine({ ...machine, tasks: tasksForEditing });
+        setIsCreating(false);
+    };
+
     const handleCancel = () => { setIsCreating(false); setEditingMachineId(null); };
 
     return (
