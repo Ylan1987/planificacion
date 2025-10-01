@@ -173,7 +173,6 @@ export default function ProductsPage() {
             const product = products.find(p => p.id === editingProductId);
             if (!product) return null;
             
-            // Transforma los datos de la API al formato que el formulario espera ('workflow')
             const workflowForEditing = product.product_workflows.map(pw => ({
                 id: pw.id,
                 task_id: pw.task_id,
