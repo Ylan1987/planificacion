@@ -1,121 +1,220 @@
-import { createClient } from '@supabase/supabase-js';
+import React, { useState, useEffect } from 'react';
+import '../App.css';
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
-const supabase = createClient(supabaseUrl, supabaseKey);
+// --- Iconos ---
+const IconoGuardar = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>;
+const IconoDescartar = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>;
+const IconoEliminar = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>;
 
-export default async function handler(req, res) {
-    console.log(`[LOG] Petición recibida en products.js: ${req.method}`);
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    if (req.method === 'OPTIONS') return res.status(200).end();
-
-    try {
-        if (req.method === 'GET') {
-            const { data, error } = await supabase.from('products').select(`id, name, product_workflows (id, task_id, is_optional, prerequisites, tasks (id, name))`);
-            if (error) throw error;
-            return res.status(200).json(data);
+// --- Componente Reutilizable para Selector con Chips ---
+function ChipSelector({ options, selectedValues, onChange, placeholder }) {
+    const currentValues = selectedValues || [];
+    const handleSelect = (e) => {
+        const selectedId = parseInt(e.target.value, 10);
+        if (selectedId && !currentValues.includes(selectedId)) {
+            onChange([...currentValues, selectedId]);
         }
+        e.target.value = "";
+    };
+    const handleRemove = (idToRemove) => {
+        onChange(currentValues.filter(id => id !== idToRemove));
+    };
+    const availableOptions = options.filter(opt => !currentValues.includes(opt.value));
+    return (
+        <div className="skills-selector">
+            <div className="chips-container">
+                {currentValues.map(value => {
+                    const option = options.find(opt => opt.value === value);
+                    return (
+                        <div key={value} className="chip">
+                            {option?.label || 'ID Desconocido'}
+                            <button onClick={() => handleRemove(value)} className="chip-delete">×</button>
+                        </div>
+                    );
+                })}
+            </div>
+            <select onChange={handleSelect} value="">
+                <option value="">{placeholder || "+ Añadir..."}</option>
+                {availableOptions.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+            </select>
+        </div>
+    );
+}
 
-        if (req.method === 'POST') {
-            const { name, workflow } = req.body;
-            
-            // 1. Crear el producto
-            const { data: productData, error: productError } = await supabase.from('products').insert({ name }).select().single();
-            if (productError) throw productError;
-            const productId = productData.id;
+// --- Componente de Formulario ---
+function ProductForm({ initialData, allTasks, onSave, onCancel }) {
+    const [product, setProduct] = useState(initialData);
 
-            if (workflow && workflow.length > 0) {
-                // 2. Insertar pasos del flujo para obtener IDs reales
-                const tempIdToRealId = new Map();
-                const initialWorkflowToInsert = workflow.map(wf => ({ product_id: productId, task_id: wf.task_id, is_optional: wf.is_optional, prerequisites: [] }));
-                const { data: insertedWorkflows, error: insertError } = await supabase.from('product_workflows').insert(initialWorkflowToInsert).select();
-                if (insertError) throw insertError;
+    const handleFieldChange = (field, value) => setProduct(p => ({ ...p, [field]: value }));
+    const handleWorkflowChange = (index, field, value) => {
+        const newWorkflow = [...product.workflow];
+        newWorkflow[index][field] = value;
+        setProduct(p => ({ ...p, workflow: newWorkflow }));
+    };
+    const addWorkflowTask = () => {
+        const newWorkflowTask = { temp_id: Date.now(), task_id: '', is_optional: false, prerequisites: [] };
+        setProduct(p => ({ ...p, workflow: [...p.workflow, newWorkflowTask] }));
+    };
+    const removeWorkflowTask = (index) => setProduct(p => ({ ...p, workflow: p.workflow.filter((_, i) => i !== index) }));
 
-                // 3. Crear mapa de traducción temp -> real
-                insertedWorkflows.forEach((realWf, index) => {
-                    tempIdToRealId.set(workflow[index].temp_id, realWf.id);
-                });
+    return (
+        <div className="card card-edit">
+            <div className="card-actions"><button onClick={() => onSave(product)} title="Guardar"><IconoGuardar /></button><button onClick={onCancel} title="Cancelar"><IconoDescartar /></button></div>
+            <div className="card-content">
+                <label>Nombre del Producto</label>
+                <input type="text" value={product.name} onChange={(e) => handleFieldChange('name', e.target.value)} autoFocus />
+                <hr style={{ margin: '20px 0' }} />
+                <h4>Flujo de Tareas del Producto</h4>
+                {(product.workflow || []).map((wfTask, index) => {
+                    const prerequisiteOptions = (product.workflow || [])
+                        .filter(p => (p.id || p.temp_id) !== (wfTask.id || wfTask.temp_id) && p.task_id)
+                        .map(p => ({
+                            value: p.id || p.temp_id,
+                            label: allTasks.find(t => t.id === p.task_id)?.name || 'Tarea sin nombre'
+                        }));
+                    
+                    return (
+                        <div key={wfTask.id || wfTask.temp_id} className="task-rule-form">
+                             <button onClick={() => removeWorkflowTask(index)} className="delete-icon-small"><IconoEliminar /></button>
+                            <div className="form-grid">
+                                <div className="full-width"><label>Tarea</label><select value={wfTask.task_id} onChange={(e) => handleWorkflowChange(index, 'task_id', parseInt(e.target.value, 10))}><option value="">-- Seleccionar --</option>{allTasks.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}</select></div>
+                                <div className="full-width">
+                                    <label>Prerrequisitos (deben terminar antes)</label>
+                                    <ChipSelector
+                                        options={prerequisiteOptions}
+                                        selectedValues={wfTask.prerequisites}
+                                        onChange={newPrerequisites => handleWorkflowChange(index, 'prerequisites', newPrerequisites)}
+                                        placeholder="+ Añadir prerrequisito..."
+                                    />
+                                </div>
+                                <div className="toggle-switch">
+                                    <input type="checkbox" id={`optional-${index}`} checked={wfTask.is_optional} onChange={(e) => handleWorkflowChange(index, 'is_optional', e.target.checked)} />
+                                    <label htmlFor={`optional-${index}`}></label>
+                                    <span>¿Esta tarea es opcional?</span>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })}
+                <button onClick={addWorkflowTask} className="add-button-small">+ Añadir Tarea al Flujo</button>
+            </div>
+        </div>
+    );
+}
 
-                // 4. Actualizar cada paso con sus prerrequisitos traducidos
-                const updatePromises = [];
-                workflow.forEach((originalWf, index) => {
-                    const realWfId = insertedWorkflows[index].id;
-                    if (originalWf.prerequisites && originalWf.prerequisites.length > 0) {
-                        const realPrerequisites = originalWf.prerequisites.map(tempId => tempIdToRealId.get(tempId)).filter(Boolean);
-                        if (realPrerequisites.length > 0) {
-                            updatePromises.push(supabase.from('product_workflows').update({ prerequisites: realPrerequisites }).eq('id', realWfId));
-                        }
-                    }
-                });
-                await Promise.all(updatePromises);
-            }
-            return res.status(201).json(productData);
-        }
+// --- Componente Principal de la Página ---
+export default function ProductsPage() {
+    const [products, setProducts] = useState([]);
+    const [tasks, setTasks] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [editingProductId, setEditingProductId] = useState(null);
+    const [isCreating, setIsCreating] = useState(false);
 
-        if (req.method === 'PUT') {
-            const { id, name, workflow } = req.body;
+    const fetchData = async () => {
+        setIsLoading(true);
+        try {
+            const [productsRes, tasksRes] = await Promise.all([fetch('/api/products'), fetch('/api/tasks')]);
+            if (!productsRes.ok || !tasksRes.ok) throw new Error("API fetch failed");
+            const productsData = await productsRes.json();
+            const tasksData = await tasksRes.json();
+            setProducts(productsData);
+            setTasks(tasksData);
+        } catch (error) { console.error("Error al cargar datos:", error); } 
+        finally { setIsLoading(false); }
+    };
 
-            // 1. Actualizar el nombre del producto
-            const { error: productError } = await supabase.from('products').update({ name }).eq('id', id);
-            if (productError) throw productError;
+    useEffect(() => { fetchData(); }, []);
 
-            // 2. Sincronizar el flujo de trabajo
-            const newWorkflowSteps = workflow.filter(wf => !wf.id); // Pasos nuevos sin ID real
-            const existingWorkflowSteps = workflow.filter(wf => wf.id); // Pasos existentes
-            
-            // 3. Borrar los pasos que ya no existen
-            const existingIds = existingWorkflowSteps.map(wf => wf.id);
-            const { error: deleteError } = await supabase.from('product_workflows').delete().eq('product_id', id).not('id', 'in', `(${existingIds.join(',')})`);
-            if (deleteError && existingIds.length > 0) throw deleteError;
-            else if (existingIds.length === 0) { // Si no quedan pasos, borrar todos
-                 const { error: deleteAllError } = await supabase.from('product_workflows').delete().eq('product_id', id);
-                 if (deleteAllError) throw deleteAllError;
-            }
-
-            // 4. Insertar los pasos nuevos
-            if (newWorkflowSteps.length > 0) {
-                const tempIdToRealId = new Map();
-                const initialStepsToInsert = newWorkflowSteps.map(wf => ({ product_id: id, task_id: wf.task_id, is_optional: wf.is_optional, prerequisites: [] }));
-                const { data: insertedWorkflows, error: insertError } = await supabase.from('product_workflows').insert(initialStepsToInsert).select();
-                if (insertError) throw insertError;
-                insertedWorkflows.forEach((realWf, index) => {
-                    tempIdToRealId.set(newWorkflowSteps[index].temp_id, realWf.id);
-                });
-                
-                // Añadir los nuevos IDs reales al pool de existentes para la traducción
-                newWorkflowSteps.forEach((wf, index) => {
-                    existingWorkflowSteps.push({ ...wf, id: insertedWorkflows[index].id });
-                });
-            }
-
-            // 5. Actualizar todos los pasos con los prerrequisitos correctos
-            const updatePromises = existingWorkflowSteps.map(wf => {
-                const translatedPrerequisites = (wf.prerequisites || []).map(prereqId => {
-                    // Si el prereqId es un temp_id, busca su real_id. Si ya es un real_id, lo usa.
-                    const newId = newWorkflowSteps.find(nws => nws.temp_id === prereqId)?.id;
-                    return newId || prereqId;
-                }).filter(Boolean);
-                return supabase.from('product_workflows').update({ prerequisites: translatedPrerequisites, task_id: wf.task_id, is_optional: wf.is_optional }).eq('id', wf.id);
+    const handleSave = async (productData) => {
+        const isCreating = !productData.id;
+        try {
+            const response = await fetch('/api/products', {
+                method: isCreating ? 'POST' : 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(productData)
             });
-            await Promise.all(updatePromises);
+            if (!response.ok) throw new Error((await response.json()).message);
+            setIsCreating(false);
+            setEditingProductId(null);
+            fetchData();
+        } catch (error) { alert(`Error al guardar: ${error.message}`); }
+    };
+
+    const handleDelete = async (id) => {
+        if (!window.confirm("¿Seguro que quieres eliminar este producto?")) return;
+        try {
+            await fetch('/api/products', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
+            fetchData();
+        } catch (error) { alert(`Error al eliminar: ${error.message}`); }
+    };
+    
+    const handleEdit = (product) => {
+        setEditingProductId(product.id);
+        setIsCreating(false);
+    };
+    
+    const handleCancel = () => {
+        setIsCreating(false);
+        setEditingProductId(null);
+    };
+
+    const handleAddNew = () => {
+        setIsCreating(true);
+        setEditingProductId(null);
+    };
+    
+    const getProductDataForEditing = () => {
+        if (isCreating) {
+            return { id: null, name: '', workflow: [] };
+        }
+        if (editingProductId) {
+            const product = products.find(p => p.id === editingProductId);
+            if (!product) return null;
             
-            return res.status(200).json({ message: 'Producto actualizado' });
+            const workflowForEditing = product.product_workflows.map(pw => ({
+                id: pw.id,
+                task_id: pw.task_id,
+                is_optional: pw.is_optional,
+                prerequisites: pw.prerequisites || []
+            }));
+            
+            return { ...product, workflow: workflowForEditing };
         }
+        return null;
+    };
 
+    const dataForForm = getProductDataForEditing();
 
-        if (req.method === 'DELETE') {
-            const { id } = req.body;
-            const { error } = await supabase.from('products').delete().eq('id', id);
-            if (error) throw error;
-            return res.status(204).end();
-        }
-
-        res.setHeader('Allow', ['GET', 'POST', 'PUT', 'DELETE']);
-        res.status(405).end(`Método ${req.method} no permitido`);
-    } catch (error) {
-        console.error('[ERROR] Error en la función products.js:', error);
-        return res.status(500).json({ message: "Ocurrió un error en el servidor.", errorDetails: error.message });
-    }
+    return (
+        <div className="app-container">
+            <header><h1>Configurar Productos</h1><button className="add-button" onClick={handleAddNew} disabled={isCreating || editingProductId !== null}>+ Nuevo Producto</button></header>
+            {isLoading ? <p>Cargando...</p> : (
+                dataForForm ? (
+                    <ProductForm
+                        initialData={dataForForm}
+                        allTasks={tasks}
+                        onSave={handleSave}
+                        onCancel={handleCancel}
+                    />
+                ) : (
+                    <main className="grid-container">
+                        {products.map(product => (
+                            <div key={product.id} className="card" onClick={() => handleEdit(product)}>
+                                <button className="delete-icon" onClick={(e) => { e.stopPropagation(); handleDelete(product.id); }}><IconoEliminar /></button>
+                                <div className="card-content">
+                                    <span>{product.name}</span>
+                                    <div className="task-summary">
+                                        <strong>Flujo:</strong>
+                                        {product.product_workflows.length > 0 ? (<ul>{product.product_workflows.map(wf => <li key={wf.id}>{wf.tasks.name}</li>)}</ul>) : <span>Sin tareas</span>}
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </main>
+                )
+            )}
+        </div>
+    );
 }
