@@ -61,6 +61,7 @@ async function calculateTaskDetails(supabase, workflowTask, quantity, orderWidth
             });
         }
     }
+    
     // 2. Buscar proveedores que pueden hacer la tarea
     const { data: providerTasks, error: ptError } = await supabase.from('provider_tasks').select(`*, provider:providers(*)`).eq('task_id', taskId);
     if (ptError) { console.error('Error buscando provider_tasks:', ptError); throw ptError; }
@@ -116,7 +117,7 @@ export default async function handler(req, res) {
                 orderTasksToInsert.push({
                     order_id: orderData.id,
                     product_workflow_id: wf.id,
-                    task_id: wf.task_id, // <-- CAMBIO CLAVE: Añadir el task_id aquí
+                    task_id: wf.task_id,
                     possible_resources: details.possible_resources,
                     prerequisites: details.prerequisites,
                     status: 'pending'
