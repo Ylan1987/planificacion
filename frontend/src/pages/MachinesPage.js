@@ -83,7 +83,33 @@ export default function MachinesPage() {
     const [editingMachineId, setEditingMachineId] = useState(null);
     const [isCreating, setIsCreating] = useState(false);
     
-    const fetchData = async () => { /* ... (código sin cambios) */ };
+    const fetchData = async () => {
+        setIsLoading(true);
+        try {
+            // Forma correcta de manejar Promise.all con fetch
+            const [machinesRes, tasksRes] = await Promise.all([
+                fetch('/api/machines'),
+                fetch('/api/tasks')
+            ]);
+            
+            // Verifica que ambas respuestas sean exitosas antes de continuar
+            if (!machinesRes.ok || !tasksRes.ok) {
+                throw new Error("Una de las peticiones a la API falló");
+            }
+
+            // Convierte ambas respuestas a JSON
+            const machinesData = await machinesRes.json();
+            const tasksData = await tasksRes.json();
+            
+            setMachines(machinesData);
+            setTasks(tasksData);
+        } catch (error) {
+            console.error("Error al cargar datos iniciales:", error);
+        } finally {
+            // Esta línea ahora sí se ejecutará siempre
+            setIsLoading(false);
+        }
+    };
     useEffect(() => { fetchData(); }, []);
     const handleSaveMachine = async (machineData) => { /* ... (código sin cambios) */ };
     const handleDeleteMachine = async (id) => { /* ... (código sin cambios) */ };
@@ -123,4 +149,4 @@ export default function MachinesPage() {
             )}
         </div>
     );
-}
+}   
