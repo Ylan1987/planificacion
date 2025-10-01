@@ -6,11 +6,9 @@ const IconoGuardar = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" he
 const IconoDescartar = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>;
 const IconoEliminar = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>;
 
-// --- Componente Reutilizable para Selector con Chips (Corregido) ---
+// --- Componente Reutilizable para Selector con Chips ---
 function ChipSelector({ options, selectedValues, onChange, placeholder }) {
-    // --- CORRECCIÓN: Asegura que selectedValues sea siempre un array ---
     const currentValues = selectedValues || [];
-
     const handleSelect = (e) => {
         const selectedId = parseInt(e.target.value, 10);
         if (selectedId && !currentValues.includes(selectedId)) {
@@ -22,11 +20,10 @@ function ChipSelector({ options, selectedValues, onChange, placeholder }) {
         onChange(currentValues.filter(id => id !== idToRemove));
     };
     const availableOptions = options.filter(opt => !currentValues.includes(opt.value));
-
     return (
         <div className="skills-selector">
             <div className="chips-container">
-                {currentValues.map(value => { // Usa currentValues en lugar de selectedValues
+                {currentValues.map(value => {
                     const option = options.find(opt => opt.value === value);
                     return (
                         <div key={value} className="chip">
@@ -70,16 +67,16 @@ function ProductForm({ initialData, allTasks, onSave, onCancel }) {
                 <input type="text" value={product.name} onChange={(e) => handleFieldChange('name', e.target.value)} autoFocus />
                 <hr style={{ margin: '20px 0' }} />
                 <h4>Flujo de Tareas del Producto</h4>
-                {product.workflow.map((wfTask, index) => {
-                    const prerequisiteOptions = product.workflow
-                        .filter(p => (p.temp_id || p.id) !== (wfTask.temp_id || wfTask.id) && p.task_id)
+                {(product.workflow || []).map((wfTask, index) => {
+                    const prerequisiteOptions = (product.workflow || [])
+                        .filter(p => (p.id || p.temp_id) !== (wfTask.id || wfTask.temp_id) && p.task_id)
                         .map(p => ({
-                            value: p.temp_id || p.id,
+                            value: p.id || p.temp_id,
                             label: allTasks.find(t => t.id === p.task_id)?.name || 'Tarea sin nombre'
                         }));
                     
                     return (
-                        <div key={wfTask.temp_id || wfTask.id} className="task-rule-form">
+                        <div key={wfTask.id || wfTask.temp_id} className="task-rule-form">
                              <button onClick={() => removeWorkflowTask(index)} className="delete-icon-small"><IconoEliminar /></button>
                             <div className="form-grid">
                                 <div className="full-width"><label>Tarea</label><select value={wfTask.task_id} onChange={(e) => handleWorkflowChange(index, 'task_id', parseInt(e.target.value, 10))}><option value="">-- Seleccionar --</option>{allTasks.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}</select></div>
@@ -167,18 +164,37 @@ export default function ProductsPage() {
         setIsCreating(true);
         setEditingProductId(null);
     };
+    
+    const getProductDataForEditing = () => {
+        if (isCreating) {
+            return { id: null, name: '', workflow: [] };
+        }
+        if (editingProductId) {
+            const product = products.find(p => p.id === editingProductId);
+            if (!product) return null;
+            
+            // Transforma los datos de la API al formato que el formulario espera ('workflow')
+            const workflowForEditing = product.product_workflows.map(pw => ({
+                id: pw.id,
+                task_id: pw.task_id,
+                is_optional: pw.is_optional,
+                prerequisites: pw.prerequisites || []
+            }));
+            
+            return { ...product, workflow: workflowForEditing };
+        }
+        return null;
+    };
+
+    const dataForForm = getProductDataForEditing();
 
     return (
         <div className="app-container">
             <header><h1>Configurar Productos</h1><button className="add-button" onClick={handleAddNew} disabled={isCreating || editingProductId !== null}>+ Nuevo Producto</button></header>
             {isLoading ? <p>Cargando...</p> : (
-                isCreating || editingProductId !== null ? (
+                dataForForm ? (
                     <ProductForm
-                        initialData={
-                            isCreating 
-                            ? { id: null, name: '', workflow: [] } 
-                            : products.find(p => p.id === editingProductId)
-                        }
+                        initialData={dataForForm}
                         allTasks={tasks}
                         onSave={handleSave}
                         onCancel={handleCancel}
