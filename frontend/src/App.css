@@ -1,4 +1,5 @@
 /* frontend/src/App.css - Versión Final y Unificada */
+@import 'vis-timeline/styles/vis-timeline-graph2d.css';
 
 :root {
   --background-color: #121212;
