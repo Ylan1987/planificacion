@@ -107,9 +107,15 @@ export default async function handler(req, res) {
 
         if (req.method === 'POST') {
             const { productId, quantity, orderNumber, dueDate, width, height, configs } = req.body;
-            
-            const { data: orderData, error: orderError } = await supabase.from('orders').insert({ product_id: productId, quantity, order_number: orderNumber, due_date: dueDate, configs }).select().single();
-            if (orderError) throw orderError;
+            const finalDueDate = dueDate === '' ? null : dueDate;
+             const { data: orderData, error: orderError } = await supabase.from('orders').insert({ 
+                product_id: productId, 
+                quantity, 
+                order_number: orderNumber, 
+                due_date: finalDueDate, // <-- Usa la variable corregida
+                configs 
+            }).select().single();
+             if (orderError) throw orderError;
 
             const { data: productWorkflows, error: wfError } = await supabase.from('product_workflows').select(`*`).eq('product_id', productId);
             if (wfError) throw wfError;
