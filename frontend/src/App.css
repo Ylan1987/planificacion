@@ -297,3 +297,68 @@ h1 {
   transform: translateY(-50%);
   pointer-events: none;
 }
+
+/* FORMULARIO COMPACTO EN LÍNEA */
+.inline-form {
+  grid-column: 1 / -1; /* Ocupa todo el ancho */
+}
+.card-edit input:not([type=checkbox]), .card-edit select {
+  background-color: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-color);
+  padding: 6px 0;
+  transition: border-color 0.2s;
+}
+.card-edit input:focus, .card-edit select:focus {
+  outline: none;
+  border-bottom-color: var(--primary-color);
+}
+
+/* NUEVA FILA DE REGLA */
+.rule-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  background-color: rgba(255, 255, 255, 0.05);
+  padding: 10px;
+  border-radius: 5px;
+}
+.rule-row span {
+  color: var(--text-color-light);
+}
+.rule-row input {
+  width: 80px;
+}
+.rule-row .custom-select {
+  width: 120px;
+}
+.toggle-switch.small label {
+  width: 34px;
+  height: 18px;
+}
+.toggle-switch.small label:after {
+  width: 14px;
+  height: 14px;
+}
+
+/* RESUMEN DE TAREAS EN VISTA NORMAL */
+.task-summary {
+  margin-top: 10px;
+  font-size: 14px;
+  color: #a0a0a0;
+}
+.task-summary ul {
+  list-style: none;
+  padding: 0;
+  margin: 5px 0 0;
+}
+.task-summary li {
+  display: inline-block;
+  background-color: var(--border-color);
+  padding: 2px 8px;
+  border-radius: 10px;
+  margin-right: 5px;
+  font-size: 12px;
+}
