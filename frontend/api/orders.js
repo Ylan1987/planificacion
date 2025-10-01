@@ -7,58 +7,52 @@ async function calculateTaskDetails(supabase, workflowTask, quantity, orderWidth
 
     let possible_resources = { machines: [], providers: [] };
 
-    // 1. Buscar máquinas que pueden hacer la tarea
     const { data: machineTasks, error: mtError } = await supabase.from('machine_tasks').select(`*, machine:machines(*)`).eq('task_id', taskId);
-    if (mtError) { console.error(`Error buscando machine_tasks:`, mtError); throw mtError; }
+    if (mtError) throw mtError;
 
     if (machineTasks) {
         for (const mt of machineTasks) {
             let duration = 0;
-            const rules = mt.work_time_rules;
+            const rules = mt.work_time_rules; // Esto es un array de reglas
             
-            if (!rules) {
+            if (!rules || rules.length === 0) {
                 console.warn(`[WARN] Máquina ${mt.machine.name} no tiene reglas de tiempo para la tarea ${taskId}`);
                 continue;
             }
 
-            let rate = 0;
-            if (rules.size_dependent) {
-                const sortedBrackets = (rules.size_brackets || []).sort((a, b) => (a.size_w * a.size_h) - (b.size_w * b.size_h));
-                let foundRate = false;
-                for (const bracket of sortedBrackets) {
-                    if ((bracket.size_w === 0 && bracket.size_h === 0) || (orderWidth <= bracket.size_w && orderHeight <= bracket.size_h)) {
-                        rate = bracket.rate;
-                        foundRate = true;
-                        break;
-                    }
+            // Encuentra la primera regla aplicable
+            let applicableRule = null;
+            const sortedRules = rules.sort((a, b) => (a.size_w * a.size_h) - (b.size_w * b.size_h));
+            
+            for (const rule of sortedRules) {
+                if ( (rule.size_w === 0 && rule.size_h === 0) || (orderWidth <= rule.size_w && orderHeight <= rule.size_h) ) {
+                    applicableRule = rule;
+                    break;
                 }
-                if (!foundRate) {
-                    console.warn(`[WARN] No se encontró rango de tamaño aplicable para Tarea ${taskId} en Máquina ${mt.machine.name}`);
-                    rate = 0;
-                }
-            } else {
-                rate = rules.rate || 0;
             }
-            console.log(`[LOG] Tarea ${taskId}, Máquina ${mt.machine.name}: Tasa de trabajo aplicable = ${rate} uds/hr`);
 
-            if (rate > 0) {
-                if (rules.mode === 'hoja' || rules.mode === 'unidad') {
+            if (applicableRule && applicableRule.rate > 0) {
+                const { rate, mode, per_pass } = applicableRule;
+                console.log(`[LOG] Tarea ${taskId}, Máquina ${mt.machine.name}: Regla aplicable encontrada. Tasa: ${rate} uds/hr.`);
+
+                if (mode === 'hoja' || mode === 'unidad') {
                     duration = (quantity / rate) * 60; // en minutos
-                } else if (rules.mode === 'bloque') {
+                } else if (mode === 'bloque') {
                     const blockSize = configs.block_sizes?.[workflowTask.id] || 1;
-                    if(blockSize > 0) duration = (Math.ceil(quantity / blockSize) / rate) * 60; // en minutos
+                    duration = (blockSize > 0) ? (Math.ceil(quantity / blockSize) / rate) * 60 : 0;
                 }
 
-                if (rules.passes) {
+                if (per_pass) {
                     const passes = configs.passes?.[workflowTask.id] || 1;
                     duration *= passes;
                     console.log(`[LOG] Tarea ${taskId} afectada por ${passes} pasadas. Duración ajustada: ${duration}`);
                 }
+            } else {
+                 console.warn(`[WARN] No se encontró tasa de trabajo aplicable para Tarea ${taskId} en Máquina ${mt.machine.name}`);
             }
 
-            const { data: skills, error: skillError } = await supabase.from('operator_skills').select('operator_id').eq('machine_id', mt.machine_id);
-            if (skillError) { console.error('Error buscando skills:', skillError); throw skillError; }
-
+            const { data: skills } = await supabase.from('operator_skills').select('operator_id').eq('machine_id', mt.machine_id);
+            
             possible_resources.machines.push({
                 machine_id: mt.machine_id,
                 machine_name: mt.machine.name,
@@ -67,7 +61,6 @@ async function calculateTaskDetails(supabase, workflowTask, quantity, orderWidth
             });
         }
     }
-    
     // 2. Buscar proveedores que pueden hacer la tarea
     const { data: providerTasks, error: ptError } = await supabase.from('provider_tasks').select(`*, provider:providers(*)`).eq('task_id', taskId);
     if (ptError) { console.error('Error buscando provider_tasks:', ptError); throw ptError; }
@@ -107,15 +100,10 @@ export default async function handler(req, res) {
 
         if (req.method === 'POST') {
             const { productId, quantity, orderNumber, dueDate, width, height, configs } = req.body;
-            const finalDueDate = dueDate === '' ? null : dueDate;
-             const { data: orderData, error: orderError } = await supabase.from('orders').insert({ 
-                product_id: productId, 
-                quantity, 
-                order_number: orderNumber, 
-                due_date: finalDueDate, // <-- Usa la variable corregida
-                configs 
-            }).select().single();
-             if (orderError) throw orderError;
+            
+            const { data: orderData, error: orderError } = await supabase.from('orders').insert({ product_id: productId, quantity, order_number: orderNumber, due_date: dueDate, width, height, configs }).select().single();
+            if (orderError) throw orderError;
+            console.log(`[LOG] Pedido ${orderData.id} creado en DB.`);
 
             const { data: productWorkflows, error: wfError } = await supabase.from('product_workflows').select(`*`).eq('product_id', productId);
             if (wfError) throw wfError;
@@ -128,7 +116,7 @@ export default async function handler(req, res) {
                 orderTasksToInsert.push({
                     order_id: orderData.id,
                     product_workflow_id: wf.id,
-                    task_id: wf.task_id, // <-- CAMBIO CLAVE: Añadir el task_id aquí
+                    task_id: wf.task_id,
                     possible_resources: details.possible_resources,
                     prerequisites: details.prerequisites,
                     status: 'pending'
@@ -138,6 +126,7 @@ export default async function handler(req, res) {
             if (orderTasksToInsert.length > 0) {
                 const { error: insertTasksError } = await supabase.from('order_tasks').insert(orderTasksToInsert);
                 if (insertTasksError) throw insertTasksError;
+                console.log(`[LOG] Generadas ${orderTasksToInsert.length} tareas planificables para pedido ${orderData.id}.`);
             }
 
             return res.status(201).json(orderData);
