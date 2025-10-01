@@ -1,4 +1,4 @@
-/* frontend/src/App.css - Versión con Modo Oscuro */
+/* frontend/src/App.css - Versión Limpia y Consolidada */
 
 :root {
   --background-color: #121212;
@@ -11,6 +11,7 @@
   --danger-color: #cf6679;
 }
 
+/* --- ESTILOS GLOBALES --- */
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     background-color: var(--background-color);
@@ -19,6 +20,11 @@ body {
     padding: 20px;
 }
 
+h1 {
+    color: var(--text-color);
+}
+
+/* --- LAYOUT PRINCIPAL --- */
 .app-container header {
     display: flex;
     justify-content: space-between;
@@ -27,10 +33,57 @@ body {
     padding: 0 10px;
 }
 
-h1 {
+.grid-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+/* --- TARJETAS (CARDS) --- */
+.card {
+    background-color: var(--card-background);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    padding: 20px;
+    position: relative;
+    transition: box-shadow 0.2s, border-color 0.2s;
+}
+
+.card:hover:not(.card-edit) {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    border-color: #444;
+    cursor: pointer;
+}
+
+.card-content span {
+    font-size: 18px;
     color: var(--text-color);
 }
 
+.task-summary {
+    margin-top: 10px;
+    font-size: 14px;
+    color: var(--text-color-light);
+}
+
+.task-summary ul {
+    list-style: none;
+    padding: 0;
+    margin: 5px 0 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.task-summary li {
+    background-color: var(--border-color);
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 12px;
+}
+
+/* --- BOTONES Y ACCIONES --- */
 .add-button {
     background-color: var(--primary-color);
     color: white;
@@ -44,47 +97,6 @@ h1 {
 
 .add-button:hover {
     background-color: #5c6bc0;
-}
-
-.grid-container {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-    gap: 20px;
-}
-
-.card {
-    background-color: var(--card-background);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-    padding: 20px;
-    position: relative;
-    transition: box-shadow 0.2s, border-color 0.2s;
-}
-
-.card:hover {
-    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-    border-color: #444;
-}
-
-.card-content {
-    cursor: pointer;
-}
-
-.card-content span {
-    font-size: 18px;
-    color: var(--text-color);
-}
-
-.card-content input {
-    width: 100%;
-    font-size: 18px;
-    border: none;
-    background-color: transparent;
-    border-bottom: 2px solid var(--primary-color);
-    padding: 2px 0;
-    outline: none;
-    color: var(--text-color);
 }
 
 .card-actions {
@@ -103,262 +115,231 @@ h1 {
     padding: 2px;
 }
 
-.card-actions button:hover {
-    color: var(--accent-color);
+.card-actions button:hover { color: var(--accent-color); }
+.delete-icon { position: absolute; top: 15px; right: 15px; }
+.delete-icon:hover { color: var(--danger-color); }
+
+.add-button-small {
+    background: none;
+    border: 1px solid var(--text-color-light);
+    color: var(--text-color-light);
+    padding: 5px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-top: 15px;
 }
 
-.delete-icon:hover {
-     color: var(--danger-color);
+.add-button-small:hover {
+    background-color: var(--border-color);
+    color: var(--text-color);
 }
 
-.delete-icon {
-    position: absolute;
-    top: 15px;
-    right: 15px;
+.delete-icon-small {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-color-light);
 }
+
+.delete-icon-small:hover {
+    color: var(--danger-color);
+}
+
+/* --- NAVEGACIÓN --- */
 .main-nav {
-  padding: 10px 20px;
-  background-color: var(--card-background);
-  border-bottom: 1px solid var(--border-color);
-  margin-bottom: 20px;
+    padding: 10px 20px;
+    background-color: var(--card-background);
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 20px;
 }
 
 .main-nav button {
-  background: none;
-  border: none;
-  color: var(--text-color-light);
-  font-size: 16px;
-  margin-right: 20px;
-  cursor: pointer;
-  transition: color 0.2s;
+    background: none;
+    border: none;
+    color: var(--text-color-light);
+    font-size: 16px;
+    margin-right: 20px;
+    cursor: pointer;
+    transition: color 0.2s;
 }
 
 .main-nav button:hover {
-  color: var(--text-color);
+    color: var(--text-color);
 }
-/* Estilos para el Formulario de Máquinas */
-.card-edit .form-section {
-  margin-bottom: 20px;
+
+/* --- FORMULARIOS DE EDICIÓN --- */
+.card-edit {
+    cursor: default;
 }
+
 .card-edit label {
-  display: block;
-  color: var(--text-color-light);
-  font-size: 14px;
-  margin-top: 15px;
-  margin-bottom: 5px;
+    display: block;
+    color: var(--text-color-light);
+    font-size: 14px;
+    margin-top: 15px;
+    margin-bottom: 5px;
+    font-weight: bold;
 }
-.task-rule-form {
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 15px;
-  margin-top: 15px;
+
+.card-edit input:not([type=checkbox]),
+.card-edit .custom-select select {
+    width: 100%;
+    font-size: 16px;
+    border: none;
+    background-color: transparent;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-color);
+    padding: 8px 0;
+    transition: border-color 0.2s;
+    border-radius: 0;
 }
+
+.card-edit input:focus, 
+.card-edit .custom-select select:focus {
+    outline: none;
+    border-bottom-color: var(--primary-color);
+}
+
+.card-edit .form-section {
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 15px;
+    margin-bottom: 15px;
+}
+
+.card-edit .task-rule-form {
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 15px;
+    margin-top: 15px;
+}
+
+.card-edit .task-rule-form:last-of-type {
+    border-bottom: none;
+}
+
 .form-row {
-  display: flex;
-  gap: 10px;
-  align-items: center;
+    display: flex;
+    gap: 15px;
+    align-items: center;
 }
-.form-row.space-between {
-  justify-content: space-between;
+
+.form-row.space-between { justify-content: space-between; }
+.form-row > div { flex: 1; }
+
+.helper-text {
+    font-size: 12px;
+    color: var(--text-color-light);
+    margin: 5px 0 0 10px;
 }
-.form-row > div {
-  flex: 1;
+
+/* Estilos para Selectores Personalizados (Combobox) */
+.custom-select {
+    position: relative;
+    width: 100%;
 }
-.add-button-small {
-  background: none;
-  border: 1px solid var(--text-color-light);
-  color: var(--text-color-light);
-  padding: 5px 10px;
-  border-radius: 5px;
-  cursor: pointer;
-  margin-top: 15px;
+
+.custom-select select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-color: #e0e0e0;
+    color: #121212;
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    padding: 8px 12px;
 }
-.add-button-small:hover {
-  background-color: var(--border-color);
-  color: var(--text-color);
+
+.custom-select::after {
+    content: '▼';
+    font-size: 12px;
+    color: #121212;
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
 }
-.delete-icon-small {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--text-color-light);
+
+/* Fila de Regla Unificada */
+.rule-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    background-color: rgba(255, 255, 255, 0.05);
+    padding: 10px;
+    border-radius: 5px;
+    flex-wrap: wrap;
 }
-.delete-icon-small:hover {
-  color: var(--danger-color);
-}
+
+.rule-row span { color: var(--text-color-light); }
+.rule-row input { width: 70px; }
+.rule-row .custom-select { width: 110px; }
 
 /* Estilos para el toggle switch de "Pasadas" */
 .toggle-switch {
-  display: flex;
-  align-items: center;
-  margin-top: 15px;
+    display: flex;
+    align-items: center;
+    margin-top: 15px;
 }
+
+.toggle-switch span {
+    margin-left: 10px;
+    color: var(--text-color-light);
+    font-size: 14px;
+}
+
 .toggle-switch input[type="checkbox"] {
-  height: 0;
-  width: 0;
-  visibility: hidden;
+    height: 0;
+    width: 0;
+    visibility: hidden;
 }
+
 .toggle-switch label {
-  cursor: pointer;
-  text-indent: -9999px;
-  width: 40px;
-  height: 20px;
-  background: grey;
-  display: block;
-  border-radius: 100px;
-  position: relative;
-  margin: 0 0 0 10px;
+    cursor: pointer;
+    text-indent: -9999px;
+    width: 40px;
+    height: 20px;
+    background: grey;
+    display: block;
+    border-radius: 100px;
+    position: relative;
 }
+
 .toggle-switch label:after {
-  content: '';
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 16px;
-  height: 16px;
-  background: #fff;
-  border-radius: 90px;
-  transition: 0.3s;
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    background: #fff;
+    border-radius: 90px;
+    transition: 0.3s;
 }
+
 .toggle-switch input:checked + label {
-  background: var(--primary-color);
+    background: var(--primary-color);
 }
+
 .toggle-switch input:checked + label:after {
-  left: calc(100% - 2px);
-  transform: translateX(-100%);
+    left: calc(100% - 2px);
+    transform: translateX(-100%);
 }
+
+.toggle-switch.small label { width: 34px; height: 18px; }
+.toggle-switch.small label:after { width: 14px; height: 14px; }
 
 /* Estilos para los rangos de tamaño */
 .size-brackets { margin-top: 15px; }
+
 .bracket-row { 
-  display: flex; 
-  align-items: center; 
-  gap: 5px; 
-  margin-bottom: 5px;
+    display: flex; 
+    align-items: center; 
+    gap: 5px; 
+    margin-bottom: 5px;
 }
+
 .bracket-row input {
-  width: 80px;
-}
-/* Borra los estilos anteriores de .task-rule-form, .form-row, etc. y reemplázalos por estos */
-
-.card-edit .form-section {
-  border-bottom: 1px solid var(--border-color);
-  padding-bottom: 20px;
-  margin-bottom: 20px;
-}
-.card-edit .task-rule-form:last-of-type {
-  border-bottom: none;
-}
-.card-edit label {
-  display: block;
-  color: var(--text-color-light);
-  font-size: 14px;
-  margin-top: 15px;
-  margin-bottom: 5px;
-  font-weight: bold;
-}
-.form-row {
-  display: flex;
-  gap: 15px;
-  align-items: center;
-}
-.form-row > div { flex: 1; }
-.helper-text {
-  font-size: 12px;
-  color: var(--text-color-light);
-  margin: 0;
-  padding-left: 10px;
-}
-
-/* Estilos para Selectores Personalizados */
-.custom-select {
-  position: relative;
-  width: 100%;
-}
-.custom-select select {
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  appearance: none;
-  width: 100%;
-  padding: 8px 12px;
-  background-color: var(--card-background);
-  color: var(--text-color);
-  border: 1px solid var(--border-color);
-  border-radius: 5px;
-  cursor: pointer;
-}
-.custom-select::after {
-  content: '▼';
-  font-size: 12px;
-  color: var(--text-color-light);
-  position: absolute;
-  right: 15px;
-  top: 50%;
-  transform: translateY(-50%);
-  pointer-events: none;
-}
-
-/* FORMULARIO COMPACTO EN LÍNEA */
-.inline-form {
-  grid-column: 1 / -1; /* Ocupa todo el ancho */
-}
-.card-edit input:not([type=checkbox]), .card-edit select {
-  background-color: transparent;
-  border: none;
-  border-bottom: 1px solid var(--border-color);
-  color: var(--text-color);
-  padding: 6px 0;
-  transition: border-color 0.2s;
-}
-.card-edit input:focus, .card-edit select:focus {
-  outline: none;
-  border-bottom-color: var(--primary-color);
-}
-
-/* NUEVA FILA DE REGLA */
-.rule-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 10px;
-  background-color: rgba(255, 255, 255, 0.05);
-  padding: 10px;
-  border-radius: 5px;
-}
-.rule-row span {
-  color: var(--text-color-light);
-}
-.rule-row input {
-  width: 80px;
-}
-.rule-row .custom-select {
-  width: 120px;
-}
-.toggle-switch.small label {
-  width: 34px;
-  height: 18px;
-}
-.toggle-switch.small label:after {
-  width: 14px;
-  height: 14px;
-}
-
-/* RESUMEN DE TAREAS EN VISTA NORMAL */
-.task-summary {
-  margin-top: 10px;
-  font-size: 14px;
-  color: #a0a0a0;
-}
-.task-summary ul {
-  list-style: none;
-  padding: 0;
-  margin: 5px 0 0;
-}
-.task-summary li {
-  display: inline-block;
-  background-color: var(--border-color);
-  padding: 2px 8px;
-  border-radius: 10px;
-  margin-right: 5px;
-  font-size: 12px;
+    width: 80px;
 }
