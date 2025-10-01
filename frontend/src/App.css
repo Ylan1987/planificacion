@@ -115,3 +115,38 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helv
 .day-schedule .form-row {
   margin-top: 5px;
 }
+/* --- ESTILOS PARA SELECTOR CON CHIPS --- */
+.skills-selector {
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
+  padding: 5px;
+}
+.chips-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 5px;
+}
+.chip {
+  display: flex;
+  align-items: center;
+  background-color: var(--primary-color);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 14px;
+}
+.chip-delete {
+  background: none;
+  border: none;
+  color: white;
+  margin-left: 8px;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 0;
+  line-height: 1;
+}
+.skills-selector select {
+  width: 100%;
+  margin-top: 5px;
+}
