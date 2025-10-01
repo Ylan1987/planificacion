@@ -20,7 +20,6 @@ export default async function handler(req, res) {
 
         if (req.method === 'POST') {
             const { name, workflow } = JSON.parse(req.body);
-            
             const { data: productData, error: productError } = await supabase.from('products').insert({ name }).select().single();
             if (productError) throw productError;
             const productId = productData.id;
@@ -53,41 +52,46 @@ export default async function handler(req, res) {
         if (req.method === 'PUT') {
             const { id, name, workflow } = JSON.parse(req.body);
 
+            // 1. Actualizar nombre del producto
             const { error: productError } = await supabase.from('products').update({ name }).eq('id', id);
             if (productError) throw productError;
 
-            const newWorkflowSteps = workflow.filter(wf => !wf.id);
-            const existingWorkflowSteps = workflow.filter(wf => wf.id);
-            
-            const existingIds = existingWorkflowSteps.map(wf => wf.id);
-            if (existingIds.length > 0) {
-                const { error: deleteError } = await supabase.from('product_workflows').delete().eq('product_id', id).not('id', 'in', `(${existingIds.join(',')})`);
-                if (deleteError) throw deleteError;
-            } else {
-                 const { error: deleteAllError } = await supabase.from('product_workflows').delete().eq('product_id', id);
-                 if (deleteAllError) throw deleteAllError;
-            }
+            // 2. Borrar todos los pasos del flujo anteriores para este producto
+            const { error: deleteError } = await supabase.from('product_workflows').delete().eq('product_id', id);
+            if (deleteError) throw deleteError;
 
-            if (newWorkflowSteps.length > 0) {
-                const initialStepsToInsert = newWorkflowSteps.map(wf => ({ product_id: id, task_id: wf.task_id, is_optional: wf.is_optional, prerequisites: [] }));
-                const { data: insertedWorkflows, error: insertError } = await supabase.from('product_workflows').insert(initialStepsToInsert).select();
+            // 3. Re-insertar el flujo completo con la nueva lógica (similar a POST)
+            // Esto simplifica enormemente la sincronización y evita errores de IDs
+            if (workflow && workflow.length > 0) {
+                const tempIdToRealId = new Map();
+                const initialWorkflowToInsert = workflow.map(wf => ({ product_id: id, task_id: wf.task_id, is_optional: wf.is_optional, prerequisites: [] }));
+                const { data: insertedWorkflows, error: insertError } = await supabase.from('product_workflows').insert(initialWorkflowToInsert).select();
                 if (insertError) throw insertError;
-                
+
                 insertedWorkflows.forEach((realWf, index) => {
-                    const tempId = newWorkflowSteps[index].temp_id;
-                    existingWorkflowSteps.push({ ...newWorkflowSteps[index], id: realWf.id, temp_id: tempId });
+                    // El ID temporal solo existe en los nuevos pasos
+                    if (workflow[index].temp_id) {
+                        tempIdToRealId.set(workflow[index].temp_id, realWf.id);
+                    }
                 });
+
+                const updatePromises = [];
+                workflow.forEach((originalWf, index) => {
+                    const realWfId = insertedWorkflows[index].id;
+                    if (originalWf.prerequisites && originalWf.prerequisites.length > 0) {
+                        // Traducir prerrequisitos: pueden ser IDs viejos (reales) o nuevos (temporales)
+                        const realPrerequisites = originalWf.prerequisites.map(prereqId => {
+                            return tempIdToRealId.get(prereqId) || prereqId;
+                        }).filter(Boolean);
+
+                        if (realPrerequisites.length > 0) {
+                            updatePromises.push(supabase.from('product_workflows').update({ prerequisites: realPrerequisites }).eq('id', realWfId));
+                        }
+                    }
+                });
+                await Promise.all(updatePromises);
             }
 
-            const updatePromises = existingWorkflowSteps.map(wf => {
-                const translatedPrerequisites = (wf.prerequisites || []).map(prereqId => {
-                    const newStep = existingWorkflowSteps.find(nws => nws.temp_id === prereqId);
-                    return newStep ? newStep.id : prereqId;
-                }).filter(Boolean);
-                return supabase.from('product_workflows').update({ prerequisites: translatedPrerequisites, task_id: wf.task_id, is_optional: wf.is_optional }).eq('id', wf.id);
-            });
-            await Promise.all(updatePromises);
-            
             return res.status(200).json({ message: 'Producto actualizado' });
         }
 
