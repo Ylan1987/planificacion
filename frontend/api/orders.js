@@ -15,24 +15,36 @@ async function calculateTaskDetails(supabase, workflowTask, quantity, orderWidth
             const rules = mt.work_time_rules;
             
             if (!rules || !Array.isArray(rules) || rules.length === 0) {
-                console.warn(`[WARN] Máquina ${mt.machine.name} no tiene reglas de tiempo válidas (no es un array o está vacío).`);
+                console.warn(`[WARN] Máquina ${mt.machine.name} no tiene reglas de tiempo válidas.`);
                 continue;
             }
 
-            let applicableRule = null;
-            const sortedRules = rules.sort((a, b) => (a.size_w * a.size_h) - (b.size_w * b.size_h));
-            
-            for (const rule of sortedRules) {
-                console.log(`[LOG] -> Comparando con regla: Hasta ${rule.size_w}x${rule.size_h}`);
-                if ((rule.size_w === 0 && rule.size_h === 0) || (orderWidth <= rule.size_w && orderHeight <= rule.size_h)) {
-                    applicableRule = rule;
-                    console.log(`[LOG] ==> ¡Regla aplicable encontrada!`, applicableRule);
-                    break;
+            // --- INICIO DE TU LÓGICA IMPLEMENTADA ---
+            const jobMax = Math.max(orderWidth, orderHeight);
+            const jobMin = Math.min(orderWidth, orderHeight);
+
+            const survivingRules = rules.filter(rule => {
+                if (rule.size_w === 0 && rule.size_h === 0) {
+                    return true; // Regla de tamaño infinito sobrevive siempre
                 }
+                const ruleMax = Math.max(rule.size_w, rule.size_h);
+                const ruleMin = Math.min(rule.size_w, rule.size_h);
+                return jobMax <= ruleMax && jobMin <= ruleMin;
+            });
+            
+            console.log(`[LOG] Reglas que sobreviven para el tamaño del trabajo: ${survivingRules.length}`);
+
+            let applicableRule = null;
+            if (survivingRules.length > 0) {
+                // De las que sobreviven, elige la más rápida (rate más alto)
+                applicableRule = survivingRules.sort((a, b) => b.rate - a.rate)[0];
             }
+            // --- FIN DE TU LÓGICA IMPLEMENTADA ---
 
             if (applicableRule && applicableRule.rate > 0) {
                 const { rate, mode, per_pass } = applicableRule;
+                console.log(`[LOG] ==> Regla más rápida seleccionada:`, applicableRule);
+
                 if (mode === 'hoja' || mode === 'unidad') {
                     duration = (quantity / rate) * 60;
                 } else if (mode === 'bloque') {
@@ -46,7 +58,7 @@ async function calculateTaskDetails(supabase, workflowTask, quantity, orderWidth
                 }
                 console.log(`[LOG] Duración calculada para ${mt.machine.name}: ${Math.round(duration)} minutos.`);
             } else {
-                 console.warn(`[WARN] No se encontró tasa de trabajo aplicable.`);
+                 console.warn(`[WARN] No se encontró ninguna regla de trabajo aplicable.`);
             }
 
             const { data: skills } = await supabase.from('operator_skills').select('operator_id').eq('machine_id', mt.machine_id);
@@ -61,7 +73,7 @@ async function calculateTaskDetails(supabase, workflowTask, quantity, orderWidth
     }
     
     // Lógica de proveedores
-    const { data: providerTasks, error: ptError } = await supabase.from('provider_tasks').select(`*, provider:providers(*)`).eq('task_id', taskId);
+    const { data: providerTasks } = await supabase.from('provider_tasks').select(`*, provider:providers(*)`).eq('task_id', taskId);
     if(providerTasks){
         for (const pt of providerTasks) {
             possible_resources.providers.push({
