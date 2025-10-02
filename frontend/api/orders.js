@@ -4,7 +4,6 @@ import { createClient } from '@supabase/supabase-js';
 async function calculateTaskDetails(supabase, workflowTask, quantity, orderWidth, orderHeight, configs) {
     const taskId = workflowTask.task_id;
     console.log(`[LOG] Brain: Calculando detalles para Tarea ID ${taskId}`);
-    console.log(`[LOG] Brain: Dimensiones del pedido: Ancho=${orderWidth}, Alto=${orderHeight}`);
 
     let possible_resources = { machines: [], providers: [] };
 
@@ -13,24 +12,20 @@ async function calculateTaskDetails(supabase, workflowTask, quantity, orderWidth
 
     if (machineTasks) {
         for (const mt of machineTasks) {
-            console.log(`\n[LOG] Evaluando Máquina: ${mt.machine.name}`);
             let duration = 0;
-            const rules = mt.work_time_rules;
-
+            const rules = mt.work_time_rules; // Esto es un array de reglas
+            
             if (!rules || rules.length === 0) {
-                console.warn(`[WARN] Máquina ${mt.machine.name} no tiene reglas de tiempo.`);
+                console.warn(`[WARN] Máquina ${mt.machine.name} no tiene reglas de tiempo para la tarea ${taskId}`);
                 continue;
             }
 
             let applicableRule = null;
             const sortedRules = rules.sort((a, b) => (a.size_w * a.size_h) - (b.size_w * b.size_h));
-            console.log(`[LOG] Reglas de tiempo encontradas y ordenadas:`, sortedRules);
-
+            
             for (const rule of sortedRules) {
-                console.log(`[LOG] -> Comparando con regla: Hasta ${rule.size_w}x${rule.size_h}`);
-                if ((rule.size_w === 0 && rule.size_h === 0) || (orderWidth <= rule.size_w && orderHeight <= rule.size_h)) {
+                if ( (rule.size_w === 0 && rule.size_h === 0) || (orderWidth <= rule.size_w && orderHeight <= rule.size_h) ) {
                     applicableRule = rule;
-                    console.log(`[LOG] ==> ¡Regla encontrada!`, applicableRule);
                     break;
                 }
             }
@@ -40,7 +35,7 @@ async function calculateTaskDetails(supabase, workflowTask, quantity, orderWidth
                 console.log(`[LOG] Tarea ${taskId}, Máquina ${mt.machine.name}: Regla aplicable encontrada. Tasa: ${rate} uds/hr.`);
 
                 if (mode === 'hoja' || mode === 'unidad') {
-                    duration = (quantity / rate) * 60; // en minutos
+                    duration = (quantity / rate) * 60;
                 } else if (mode === 'bloque') {
                     const blockSize = configs.block_sizes?.[workflowTask.id] || 1;
                     duration = (blockSize > 0) ? (Math.ceil(quantity / blockSize) / rate) * 60 : 0;
@@ -49,7 +44,6 @@ async function calculateTaskDetails(supabase, workflowTask, quantity, orderWidth
                 if (per_pass) {
                     const passes = configs.passes?.[workflowTask.id] || 1;
                     duration *= passes;
-                    console.log(`[LOG] Tarea ${taskId} afectada por ${passes} pasadas. Duración ajustada: ${duration}`);
                 }
             } else {
                  console.warn(`[WARN] No se encontró tasa de trabajo aplicable para Tarea ${taskId} en Máquina ${mt.machine.name}`);
