@@ -94,9 +94,25 @@ export default async function handler(req, res) {
 
     try {
         if (req.method === 'GET') {
-            const { data, error } = await supabase.from('orders').select(`*, product:products(name), order_tasks(*, task:tasks(name))`).order('created_at', { ascending: false });
+            console.log("[LOG] GET: Obteniendo pedidos...");
+            const { data: orders, error } = await supabase.from('orders').select(`*, product:products(name), product_workflows(*), order_tasks(*, task:tasks(name))`).order('created_at', { ascending: false });
             if (error) throw error;
-            return res.status(200).json(data);
+            
+            console.log(`[LOG] GET: ${orders.length} pedidos encontrados. Enriqueciendo datos...`);
+            
+            // Para cada pedido, recalculamos los detalles de sus tareas
+            for (const order of orders) {
+                for (const orderTask of order.order_tasks) {
+                    const workflowTask = order.product_workflows.find(pwf => pwf.id === orderTask.product_workflow_id);
+                    if (workflowTask) {
+                        const details = await calculateTaskDetails(supabase, workflowTask, order.quantity, order.width, order.height, order.configs);
+                        orderTask.possible_resources = details.possible_resources;
+                    }
+                }
+            }
+
+            console.log("[LOG] GET: Datos enriquecidos y listos para enviar.");
+            return res.status(200).json(orders);
         }
 
         if (req.method === 'POST') {
