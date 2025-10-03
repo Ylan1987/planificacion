@@ -93,17 +93,42 @@ export default async function handler(req, res) {
     if (req.method === 'OPTIONS') return res.status(200).end();
 
     try {
+        export default async function handler(req, res) {
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    console.log(`[LOG] Petición recibida en orders.js: ${req.method}`);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    if (req.method === 'OPTIONS') return res.status(200).end();
+
+    try {
         if (req.method === 'GET') {
             console.log("[LOG] GET: Obteniendo pedidos...");
-            const { data: orders, error } = await supabase.from('orders').select(`*, product:products(name), product_workflows(*), order_tasks(*, task:tasks(name))`).order('created_at', { ascending: false });
+
+            // --- CORRECCIÓN DE LA CONSULTA ---
+            const { data: orders, error } = await supabase
+                .from('orders')
+                .select(`
+                    *,
+                    product:products (
+                        name,
+                        product_workflows ( * )
+                    ),
+                    order_tasks ( *, task:tasks(name) )
+                `)
+                .order('created_at', { ascending: false });
+
             if (error) throw error;
-            
             console.log(`[LOG] GET: ${orders.length} pedidos encontrados. Enriqueciendo datos...`);
             
-            // Para cada pedido, recalculamos los detalles de sus tareas
             for (const order of orders) {
+                // El flujo de trabajo ahora viene anidado dentro del producto
+                const productWorkflows = order.product.product_workflows;
                 for (const orderTask of order.order_tasks) {
-                    const workflowTask = order.product_workflows.find(pwf => pwf.id === orderTask.product_workflow_id);
+                    const workflowTask = productWorkflows.find(pwf => pwf.id === orderTask.product_workflow_id);
                     if (workflowTask) {
                         const details = await calculateTaskDetails(supabase, workflowTask, order.quantity, order.width, order.height, order.configs);
                         orderTask.possible_resources = details.possible_resources;
