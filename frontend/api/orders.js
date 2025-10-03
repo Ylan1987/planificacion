@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 
 async function calculateTaskDetails(supabase, workflowTask, quantity, orderWidth, orderHeight, configs) {
     const taskId = workflowTask.task_id;
-    console.log(`[LOG] Brain: Calculando Tarea ID ${taskId} para Cantidad ${quantity} y Tamaño ${orderWidth}x${orderHeight}`);
+    console.log(`[LOG] Brain: Iniciando cálculo para Tarea ID ${taskId} | Cant: ${quantity} | Tamaño: ${orderWidth}x${orderHeight}`);
 
     let possible_resources = { machines: [], providers: [] };
     const { data: machineTasks, error: mtError } = await supabase.from('machine_tasks').select(`*, machine:machines(*)`).eq('task_id', taskId);
@@ -15,62 +15,56 @@ async function calculateTaskDetails(supabase, workflowTask, quantity, orderWidth
             const rules = mt.work_time_rules;
             
             if (!rules || !Array.isArray(rules) || rules.length === 0) {
-                console.warn(`[WARN] Máquina ${mt.machine.name} no tiene reglas de tiempo válidas.`);
-                continue;
-            }
-
-            // --- INICIO DE TU LÓGICA IMPLEMENTADA ---
-            const jobMax = Math.max(orderWidth, orderHeight);
-            const jobMin = Math.min(orderWidth, orderHeight);
-
-            const survivingRules = rules.filter(rule => {
-                if (rule.size_w === 0 && rule.size_h === 0) {
-                    return true; // Regla de tamaño infinito sobrevive siempre
-                }
-                const ruleMax = Math.max(rule.size_w, rule.size_h);
-                const ruleMin = Math.min(rule.size_w, rule.size_h);
-                return jobMax <= ruleMax && jobMin <= ruleMin;
-            });
-            
-            console.log(`[LOG] Reglas que sobreviven para el tamaño del trabajo: ${survivingRules.length}`);
-
-            let applicableRule = null;
-            if (survivingRules.length > 0) {
-                // De las que sobreviven, elige la más rápida (rate más alto)
-                applicableRule = survivingRules.sort((a, b) => b.rate - a.rate)[0];
-            }
-            // --- FIN DE TU LÓGICA IMPLEMENTADA ---
-
-            if (applicableRule && applicableRule.rate > 0) {
-                const { rate, mode, per_pass } = applicableRule;
-                console.log(`[LOG] ==> Regla más rápida seleccionada:`, applicableRule);
-
-                if (mode === 'hoja' || mode === 'unidad') {
-                    duration = (quantity / rate) * 60;
-                } else if (mode === 'bloque') {
-                    const blockSize = configs.block_sizes?.[workflowTask.id] || 1;
-                    duration = (blockSize > 0) ? (Math.ceil(quantity / blockSize) / rate) * 60 : 0;
-                }
-
-                if (per_pass) {
-                    const passes = configs.passes?.[workflowTask.id] || 1;
-                    duration *= passes;
-                }
-                console.log(`[LOG] Duración calculada para ${mt.machine.name}: ${Math.round(duration)} minutos.`);
+                console.warn(`[WARN] SIN REGLAS: Máquina ${mt.machine.name} no tiene reglas de tiempo.`);
             } else {
-                 console.warn(`[WARN] No se encontró ninguna regla de trabajo aplicable.`);
+                const jobMax = Math.max(orderWidth, orderHeight);
+                const jobMin = Math.min(orderWidth, orderHeight);
+
+                const survivingRules = rules.filter(rule => {
+                    if (rule.size_w === 0 && rule.size_h === 0) return true;
+                    const ruleMax = Math.max(rule.size_w, rule.size_h);
+                    const ruleMin = Math.min(rule.size_w, rule.size_h);
+                    return jobMax <= ruleMax && jobMin <= ruleMin;
+                });
+                
+                console.log(`[LOG] Reglas que sobreviven para el tamaño del trabajo: ${survivingRules.length}`);
+
+                let applicableRule = null;
+                if (survivingRules.length > 0) {
+                    applicableRule = survivingRules.sort((a, b) => b.rate - a.rate)[0];
+                    console.log(`[LOG] ==> Regla más rápida seleccionada:`, applicableRule);
+
+                    const { rate, mode, per_pass } = applicableRule;
+                    if (rate > 0) {
+                        if (mode === 'hoja' || mode === 'unidad') {
+                            duration = (quantity / rate) * 60;
+                        } else if (mode === 'bloque') {
+                            const blockSize = configs.block_sizes?.[workflowTask.id] || 1;
+                            duration = (blockSize > 0) ? (Math.ceil(quantity / blockSize) / rate) * 60 : 0;
+                        }
+                        if (per_pass) {
+                            const passes = configs.passes?.[workflowTask.id] || 1;
+                            duration *= passes;
+                        }
+                    }
+                } else {
+                    console.warn(`[WARN] NINGUNA REGLA SOBREVIVIÓ: No se encontró regla aplicable para el tamaño.`);
+                }
             }
 
             const { data: skills } = await supabase.from('operator_skills').select('operator_id').eq('machine_id', mt.machine_id);
+            const finalDuration = Math.round(duration);
+            console.log(`[LOG] Duración final calculada para ${mt.machine.name}: ${finalDuration} minutos.`);
             
             possible_resources.machines.push({
                 machine_id: mt.machine_id,
                 machine_name: mt.machine.name,
                 operator_ids: skills ? skills.map(s => s.operator_id) : [],
-                duration_minutes: Math.round(duration)
+                duration_minutes: finalDuration
             });
         }
     }
+    
     
     // Lógica de proveedores
     const { data: providerTasks } = await supabase.from('provider_tasks').select(`*, provider:providers(*)`).eq('task_id', taskId);
@@ -106,18 +100,35 @@ export default async function handler(req, res) {
         }
 
         if (req.method === 'POST') {
+            console.log("[LOG] POST: Iniciando creación de pedido...");
             const { productId, quantity, orderNumber, dueDate, width, height, configs } = req.body;
+            console.log("[LOG] POST: Body recibido:", req.body);
             
+            console.log("[LOG] POST: Paso 1 - Insertando pedido en la tabla 'orders'.");
             const { data: orderData, error: orderError } = await supabase.from('orders').insert({ product_id: productId, quantity, order_number: orderNumber, due_date: dueDate || null, width, height, configs }).select().single();
-            if (orderError) throw orderError;
+            if (orderError) {
+                console.error("[ERROR] POST: Fallo al insertar en 'orders'.", orderError);
+                throw orderError;
+            }
+            console.log(`[LOG] POST: Pedido ${orderData.id} creado en DB.`);
 
+            console.log(`[LOG] POST: Paso 2 - Obteniendo flujo de trabajo para Producto ID ${productId}.`);
             const { data: productWorkflows, error: wfError } = await supabase.from('product_workflows').select(`*`).eq('product_id', productId);
-            if (wfError) throw wfError;
-
+            if (wfError) {
+                console.error("[ERROR] POST: Fallo al obtener 'product_workflows'.", wfError);
+                throw wfError;
+            }
+            console.log(`[LOG] POST: Flujo de trabajo encontrado con ${productWorkflows.length} pasos.`);
+            
+            console.log("[LOG] POST: Paso 3 - Filtrando tareas opcionales.");
             const finalWorkflow = productWorkflows.filter(wf => !wf.is_optional || configs.optional_tasks?.includes(wf.id));
+            console.log(`[LOG] POST: Flujo final tiene ${finalWorkflow.length} pasos.`);
             
             const orderTasksToInsert = [];
+            console.log("[LOG] POST: Paso 4 - Iterando sobre el flujo final para llamar a calculateTaskDetails.");
             for (const wf of finalWorkflow) {
+                // Si este log no aparece, el problema está en los pasos anteriores.
+                console.log(`[LOG] POST: Llamando a calculateTaskDetails para el paso de flujo con ID ${wf.id}.`);
                 const details = await calculateTaskDetails(supabase, wf, quantity, width, height, configs);
                 orderTasksToInsert.push({
                     order_id: orderData.id,
@@ -129,11 +140,16 @@ export default async function handler(req, res) {
                 });
             }
 
+            console.log(`[LOG] POST: Paso 5 - Insertando ${orderTasksToInsert.length} tareas planificables.`);
             if (orderTasksToInsert.length > 0) {
                 const { error: insertTasksError } = await supabase.from('order_tasks').insert(orderTasksToInsert);
-                if (insertTasksError) throw insertTasksError;
+                if (insertTasksError) {
+                    console.error("[ERROR] POST: Fallo al insertar 'order_tasks'.", insertTasksError);
+                    throw insertTasksError;
+                }
             }
 
+            console.log("[LOG] POST: Proceso completado exitosamente.");
             return res.status(201).json(orderData);
         }
     } catch (error) {
