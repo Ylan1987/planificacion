@@ -1,6 +1,6 @@
 // DENTRO DE: frontend/api/tasks.js
 
-const { createClient } = require('@supabase/supabase-js');
+import { createClient } from '@supabase/supabase-js';
 
 // La conexión a Supabase se mantiene igual
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -8,8 +8,7 @@ const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // La función principal que Vercel ejecutará, ahora con logs
-export default async function handler(req, res) {
-    // --> LOG 1: Registra cada petición que llega
+export default async function handler(req, res) {    // --> LOG 1: Registra cada petición que llega
     console.log(`[LOG] Petición recibida: ${req.method} en ${req.url}`);
 
     // ... (El código de CORS no cambia)
