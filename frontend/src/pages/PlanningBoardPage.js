@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Timeline } from 'vis-timeline/esnext';
-import { DataSet } from 'vis-data/peer';
+import { Timeline } from 'vis-timeline'; // <-- CORRECCIÓN
+import { DataSet } from 'vis-data';      // <-- CORRECCIÓN
 import 'vis-timeline/styles/vis-timeline-graph2d.css';
 import moment from 'moment';
 import '../App.css';
