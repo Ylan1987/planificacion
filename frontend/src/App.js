@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import TasksPage from './pages/TasksPage';
-import MachinesPage from './pages/MachinesPage';
-import ProvidersPage from './pages/ProvidersPage';
-import OperatorsPage from './pages/OperatorsPage';
-import ProductsPage from './pages/ProductsPage';
-import PlanningBoardPage from './pages/PlanningBoardPage'; // <-- Importar
+// --- CORRECCIÓN: Añadidas las extensiones .js a todas las importaciones ---
+import TasksPage from './pages/TasksPage.js';
+import MachinesPage from './pages/MachinesPage.js';
+import ProvidersPage from './pages/ProvidersPage.js';
+import OperatorsPage from './pages/OperatorsPage.js';
+import ProductsPage from './pages/ProductsPage.js';
+import PlanningBoardPage from './pages/PlanningBoardPage.js';
 import './App.css';
 
 function App() {
