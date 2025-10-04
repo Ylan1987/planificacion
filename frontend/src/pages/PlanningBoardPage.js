@@ -4,7 +4,7 @@ import { DataSet } from 'vis-data/peer';
 import 'vis-timeline/styles/vis-timeline-graph2d.css';
 import moment from 'moment';
 import '../App.css';
-import CreateOrderModal from '../components/CreateOrderModal';
+import CreateOrderModal from '../components/CreateOrderModal.js';
 
 // --- Componente Modal para Asignar Operario ---
 function AssignOperatorModal({ task, resource, operators, onSave, onCancel }) {
