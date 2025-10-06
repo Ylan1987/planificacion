@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 
-/*async function calculateTaskDetails(supabase, workflowTask, quantity, orderWidth, orderHeight, configs) {
+async function calculateTaskDetails(supabase, workflowTask, quantity, orderWidth, orderHeight, configs) {
     const taskId = workflowTask.task_id;
-    console.log(`[LOG] Brain: Iniciando cálculo para Tarea ID ${taskId} | Cant: ${quantity} | Tamaño: ${orderWidth}x${orderHeight}`);
+    console.log(`[LOG] Brain: Calculando Tarea ID ${taskId} para Cant: ${quantity} y Tamaño ${orderWidth}x${orderHeight}`);
 
     let possible_resources = { machines: [], providers: [] };
     const { data: machineTasks, error: mtError } = await supabase.from('machine_tasks').select(`*, machine:machines(*)`).eq('task_id', taskId);
@@ -10,63 +10,44 @@ import { createClient } from '@supabase/supabase-js';
 
     if (machineTasks) {
         for (const mt of machineTasks) {
-            console.log(`\n[LOG] -- Evaluando Máquina: ${mt.machine.name} --`);
             let duration = 0;
             const rules = mt.work_time_rules;
-            
             if (!rules || !Array.isArray(rules) || rules.length === 0) {
-                console.warn(`[WARN] SIN REGLAS: Máquina ${mt.machine.name} no tiene reglas de tiempo.`);
-            } else {
-                const jobMax = Math.max(orderWidth, orderHeight);
-                const jobMin = Math.min(orderWidth, orderHeight);
-
-                const survivingRules = rules.filter(rule => {
-                    if (rule.size_w === 0 && rule.size_h === 0) return true;
-                    const ruleMax = Math.max(rule.size_w, rule.size_h);
-                    const ruleMin = Math.min(rule.size_w, rule.size_h);
-                    return jobMax <= ruleMax && jobMin <= ruleMin;
-                });
-                
-                console.log(`[LOG] Reglas que sobreviven para el tamaño del trabajo: ${survivingRules.length}`);
-
-                let applicableRule = null;
-                if (survivingRules.length > 0) {
-                    applicableRule = survivingRules.sort((a, b) => b.rate - a.rate)[0];
-                    console.log(`[LOG] ==> Regla más rápida seleccionada:`, applicableRule);
-
-                    const { rate, mode, per_pass } = applicableRule;
-                    if (rate > 0) {
-                        if (mode === 'hoja' || mode === 'unidad') {
-                            duration = (quantity / rate) * 60;
-                        } else if (mode === 'bloque') {
-                            const blockSize = configs.block_sizes?.[workflowTask.id] || 1;
-                            duration = (blockSize > 0) ? (Math.ceil(quantity / blockSize) / rate) * 60 : 0;
-                        }
-                        if (per_pass) {
-                            const passes = configs.passes?.[workflowTask.id] || 1;
-                            duration *= passes;
-                        }
-                    }
-                } else {
-                    console.warn(`[WARN] NINGUNA REGLA SOBREVIVIÓ: No se encontró regla aplicable para el tamaño.`);
-                }
+                console.warn(`[WARN] SIN REGLAS: Máquina ${mt.machine.name} no tiene reglas.`);
+                continue;
             }
-
+            const jobMax = Math.max(orderWidth, orderHeight);
+            const jobMin = Math.min(orderWidth, orderHeight);
+            const survivingRules = rules.filter(rule => {
+                if (rule.size_w === 0 && rule.size_h === 0) return true;
+                const ruleMax = Math.max(rule.size_w, rule.size_h);
+                const ruleMin = Math.min(rule.size_w, rule.size_h);
+                return jobMax <= ruleMax && jobMin <= ruleMin;
+            });
+            let applicableRule = null;
+            if (survivingRules.length > 0) {
+                applicableRule = survivingRules.sort((a, b) => b.rate - a.rate)[0];
+                const { rate, mode, per_pass } = applicableRule;
+                if (rate > 0) {
+                    if (mode === 'hoja' || mode === 'unidad') duration = (quantity / rate) * 60;
+                    else if (mode === 'bloque') {
+                        const blockSize = configs.block_sizes?.[workflowTask.id] || 1;
+                        duration = (blockSize > 0) ? (Math.ceil(quantity / blockSize) / rate) * 60 : 0;
+                    }
+                    if (per_pass) duration *= (configs.passes?.[workflowTask.id] || 1);
+                }
+            } else {
+                console.warn(`[WARN] NINGUNA REGLA SOBREVIVIÓ.`);
+            }
             const { data: skills } = await supabase.from('operator_skills').select('operator_id').eq('machine_id', mt.machine_id);
-            const finalDuration = Math.round(duration);
-            console.log(`[LOG] Duración final calculada para ${mt.machine.name}: ${finalDuration} minutos.`);
-            
             possible_resources.machines.push({
                 machine_id: mt.machine_id,
                 machine_name: mt.machine.name,
                 operator_ids: skills ? skills.map(s => s.operator_id) : [],
-                duration_minutes: finalDuration
+                duration_minutes: Math.round(duration)
             });
         }
     }
-    
-    
-    // Lógica de proveedores
     const { data: providerTasks } = await supabase.from('provider_tasks').select(`*, provider:providers(*)`).eq('task_id', taskId);
     if(providerTasks){
         for (const pt of providerTasks) {
@@ -77,10 +58,10 @@ import { createClient } from '@supabase/supabase-js';
             });
         }
     }
-    
     return { possible_resources, prerequisites: workflowTask.prerequisites || [] };
 }
-*/
+
+
 export default async function handler(req, res) {
     const supabaseUrl = process.env.SUPABASE_URL;
     const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
