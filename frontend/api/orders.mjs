@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 
-async function calculateTaskDetails(supabase, workflowTask, quantity, orderWidth, orderHeight, configs) {
+/*async function calculateTaskDetails(supabase, workflowTask, quantity, orderWidth, orderHeight, configs) {
     const taskId = workflowTask.task_id;
     console.log(`[LOG] Brain: Iniciando cálculo para Tarea ID ${taskId} | Cant: ${quantity} | Tamaño: ${orderWidth}x${orderHeight}`);
 
@@ -80,7 +80,7 @@ async function calculateTaskDetails(supabase, workflowTask, quantity, orderWidth
     
     return { possible_resources, prerequisites: workflowTask.prerequisites || [] };
 }
-
+*/
 export default async function handler(req, res) {
     const supabaseUrl = process.env.SUPABASE_URL;
     const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
