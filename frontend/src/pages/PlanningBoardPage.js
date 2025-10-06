@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Timeline } from 'vis-timeline'; // <-- CORRECCIÓN
-import { DataSet } from 'vis-data';      // <-- CORRECCIÓN
+import { Timeline } from 'vis-timeline/esnext';
+import { DataSet } from 'vis-data/peer';
 import 'vis-timeline/styles/vis-timeline-graph2d.css';
 import moment from 'moment';
 import '../App.css';
-import CreateOrderModal from '../components/CreateOrderModal';
+import CreateOrderModal from '../components/CreateOrderModal.js';
 
 // --- Componente Modal para Asignar Operario ---
 function AssignOperatorModal({ task, resource, operators, onSave, onCancel }) {
@@ -58,7 +58,6 @@ function AssignOperatorModal({ task, resource, operators, onSave, onCancel }) {
 }
 
 
-
 // --- Componente Principal del Tablero ---
 export default function PlanningBoardPage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -77,23 +76,36 @@ export default function PlanningBoardPage() {
     const groups = useRef(new DataSet());
 
     const timelineOptions = {
-        stack: false, width: '100%', height: 'calc(100vh - 120px)',
-        orientation: 'top', zoomMin: 1000 * 60 * 60,
+        stack: false,
+        width: '100%',
+        height: 'calc(100vh - 120px)',
+        orientation: 'top',
+        zoomMin: 1000 * 60 * 60,
         start: moment().startOf('day').toDate(),
         end: moment().startOf('day').add(1, 'week').toDate(),
     };
-
+    
     const fetchData = async () => {
         try {
             const [ord, prod, mach, prov, ops, sched] = await Promise.all([
-                fetch('/api/orders').then(res => res.json()), fetch('/api/products').then(res => res.json()),
-                fetch('/api/machines').then(res => res.json()), fetch('/api/providers').then(res => res.json()),
-                fetch('/api/operators').then(res => res.json()), fetch('/api/schedule').then(res => res.json()),
+                fetch('/api/orders').then(res => res.json()),
+                fetch('/api/products').then(res => res.json()),
+                fetch('/api/machines').then(res => res.json()),
+                fetch('/api/providers').then(res => res.json()),
+                fetch('/api/operators').then(res => res.json()),
+                fetch('/api/schedule').then(res => res.json()),
             ]);
-            setOrders(ord || []); setProducts(prod || []); setMachines(mach || []);
-            setProviders(prov || []); setOperators(ops || []); setScheduledTasks(sched || []);
-        } catch(e) { console.error("Error fetching initial data", e); }
+            setOrders(ord || []);
+            setProducts(prod || []);
+            setMachines(mach || []);
+            setProviders(prov || []);
+            setOperators(ops || []);
+            setScheduledTasks(sched || []);
+        } catch(e) {
+            console.error("Error fetching initial data", e);
+        }
     };
+
     useEffect(() => { fetchData(); }, []);
     
     useEffect(() => {
@@ -133,16 +145,57 @@ export default function PlanningBoardPage() {
         };
     }, [planningTask, operators, scheduledTasks]);
 
-    useEffect(() => { /* ... (actualización de groups sin cambios) */ }, [machines, providers]);
-    useEffect(() => { /* ... (actualización de items sin cambios) */ }, [scheduledTasks]);
+    useEffect(() => {
+        const groupData = [ ...(machines.map(m => ({ id: `m-${m.id}`, content: m.name })) || []), ...(providers.map(p => ({ id: `p-${p.id}`, content: p.name })) || []) ];
+        groups.current.clear();
+        groups.current.add(groupData);
+    }, [machines, providers]);
 
-    const isOperatorAvailable = (operatorId, start, end) => { /* ... (código sin cambios) */ };
+    useEffect(() => {
+        const itemData = (scheduledTasks || []).map(st => ({
+            id: st.id,
+            group: st.machine_id ? `m-${st.machine_id}` : `p-${st.provider_id}`,
+            content: st.order_task.task.name,
+            start: new Date(st.start_time),
+            end: new Date(st.end_time),
+            title: `Pedido: ${st.order_task.order_id}`
+        }));
+        const backgroundItems = items.current.get({ filter: item => item.type === 'background' });
+        items.current.clear();
+        items.current.add([...itemData, ...backgroundItems]);
+    }, [scheduledTasks]);
+
+    const isOperatorAvailable = (operatorId, start, end) => {
+        const operator = operators.find(op => op.id === operatorId);
+        if (!operator) return false;
+        const startMoment = moment(start);
+        const endMoment = moment(end);
+        const dayOfWeek = startMoment.format('dddd').toLowerCase();
+        const workSegments = operator.schedule?.[dayOfWeek];
+        if (!workSegments || workSegments.length === 0) return false;
+        let isInWorkHours = false;
+        for (const segment of workSegments) {
+            const segmentStart = startMoment.clone().startOf('day').add(moment.duration(segment.start));
+            const segmentEnd = startMoment.clone().startOf('day').add(moment.duration(segment.end));
+            if (startMoment.isSameOrAfter(segmentStart) && endMoment.isSameOrBefore(segmentEnd)) {
+                isInWorkHours = true;
+                break;
+            }
+        }
+        if (!isInWorkHours) return false;
+        const operatorTasks = scheduledTasks.filter(t => t.operator_id === operatorId);
+        for (const task of operatorTasks) {
+            if (startMoment < moment(task.end_time) && endMoment > moment(task.start_time)) return false;
+        }
+        return true;
+    };
 
     const startPlanning = async (task, order) => {
         setPlanningTask(task);
         const backgroundItems = items.current.get({ filter: item => item.type === 'background' });
         items.current.remove(backgroundItems.map(item => item.id));
 
+        console.log("Enviando a calcular slots para la tarea:", task);
         try {
             const response = await fetch('/api/calculate-slots', {
                 method: 'POST',
@@ -180,10 +233,34 @@ export default function PlanningBoardPage() {
         }
     };
     
-    const cancelPlanning = () => { /* ... (código sin cambios) */ };
-    const handleScheduleTask = async (scheduleData) => { /* ... (código sin cambios) */ };
-    const handleSaveOrder = async (orderData) => { /* ... (código sin cambios) */ };
-    const isTaskPlannable = (task, order) => { /* ... (código sin cambios) */ };
+    const cancelPlanning = () => {
+        setPlanningTask(null);
+        const backgroundItems = items.current.get({ filter: item => item.type === 'background' });
+        items.current.remove(backgroundItems.map(item => item.id));
+    };
+    
+    const handleScheduleTask = async (scheduleData) => {
+        try {
+            await fetch('/api/schedule', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(scheduleData) });
+            setOperatorModalData(null);
+            cancelPlanning();
+            fetchData();
+        } catch (error) { console.error("Error al agendar tarea:", error); alert("Error al agendar tarea."); }
+    };
+    
+    const handleSaveOrder = async (orderData) => {
+        try {
+            await fetch('/api/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(orderData) });
+            setIsModalOpen(false);
+            fetchData();
+        } catch (error) { console.error("Error al crear pedido:", error); alert("Error al crear pedido."); }
+    };
+
+    const isTaskPlannable = (task, order) => {
+        if (!task.prerequisites || task.prerequisites.length === 0) return true;
+        const scheduledWorkflowIds = (order.order_tasks || []).filter(t => t.status === 'scheduled').map(t => t.product_workflow_id);
+        return task.prerequisites.every(prereqId => scheduledWorkflowIds.includes(prereqId));
+    };
 
     return (
         <div>
